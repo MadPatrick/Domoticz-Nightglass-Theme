@@ -1381,3 +1381,586 @@ document.addEventListener('DOMContentLoaded', function () {
     window._dzExtraProcessors = window._dzExtraProcessors || [];
     window._dzExtraProcessors.push(replaceMoonImages);
 })();
+
+
+/* ══════════════════════════════════════════════════════════════════
+   MIND-BLOWING FEATURES
+   ══════════════════════════════════════════════════════════════════ */
+
+
+/* ── Features: 3D Tilt · Temperature Accent · Ambient Glow · Staleness · Flash observer ── */
+(function () {
+    'use strict';
+
+    /* ── 3D Card Tilt (Feature 3) ─────────────────────────────────── */
+    var TILT_MAX = 3; // degrees
+
+    function applyTilt(card) {
+        if (card._dzTiltAttached) return;
+        card._dzTiltAttached = true;
+        card.classList.add('dz-tilt-enabled');
+        card.addEventListener('mousemove', function (e) {
+            var rect = card.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            var dx = (e.clientX - cx) / (rect.width / 2);
+            var dy = (e.clientY - cy) / (rect.height / 2);
+            var rx = (-dy * TILT_MAX).toFixed(1);
+            var ry = ( dx * TILT_MAX).toFixed(1);
+            card.style.transform = 'perspective(700px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+        });
+        card.addEventListener('mouseleave', function () {
+            card.style.transform = '';
+        });
+    }
+
+    /* ── Temperature-Reactive Card Accent (Feature 4) ─────────────── */
+    var TEMP_ACCENT = [
+        [  0, '#29b6f6'], //  ≤ 0 °C — ice blue
+        [  5, '#29b6f6'], //  ≤ 5   — cold
+        [ 10, '#4dd0e1'], //  ≤ 10  — cool
+        [ 15, '#66bb6a'], //  ≤ 15  — mild
+        [ 20, '#4caf7d'], //  ≤ 20  — comfortable
+        [ 25, '#ffa726'], //  ≤ 25  — warm
+        [ 30, '#ff7043'], //  ≤ 30  — hot
+        [999, '#e05555']  //  > 30  — very hot
+    ];
+
+    function tempToAccentColor(c) {
+        for (var i = 0; i < TEMP_ACCENT.length; i++) {
+            if (c <= TEMP_ACCENT[i][0]) return TEMP_ACCENT[i][1];
+        }
+        return '#e05555';
+    }
+
+    function parseCelsius(text) {
+        // Match "21.5 °C", "21.5°C", "21.5 C", "21.5 °F", "21.5 F" etc.
+        var m = text.match(/([-\d.]+)\s*°?\s*([CF])\b/i);
+        if (!m) return null;
+        var v = parseFloat(m[1]);
+        if (m[2].toUpperCase() === 'F') v = (v - 32) * 5 / 9;
+        return v;
+    }
+
+    /* ── UV / Rain / Wind / Visibility accent colors ─────────────── */
+
+    // UV index (WHO scale 0–11+)
+    var UV_ACCENT = [
+        [ 2, '#4caf7d'], // low
+        [ 5, '#f0a832'], // moderate
+        [ 7, '#ff7043'], // high
+        [10, '#e05555'], // very high
+        [99, '#9c27b0']  // extreme
+    ];
+
+    // Rain (mm — daily accumulation or current rate)
+    var RAIN_ACCENT = [
+        [  0, '#555770'], // dry
+        [  2, '#64b5f6'], // light
+        [ 10, '#1e88e5'], // moderate
+        [ 25, '#1565c0'], // heavy
+        [999, '#0d47a1']  // very heavy
+    ];
+
+    // Wind speed (m/s)
+    var WIND_ACCENT = [
+        [  1, '#b0b3c6'], // calm
+        [  3, '#4caf7d'], // light breeze
+        [  8, '#f0a832'], // moderate
+        [ 14, '#ff7043'], // strong
+        [999, '#e05555']  // storm
+    ];
+
+    // Visibility (km)
+    var VIS_ACCENT = [
+        [  1, '#e05555'], // very poor
+        [  2, '#ff7043'], // poor
+        [  5, '#f0a832'], // moderate
+        [ 10, '#4e9af1'], // good
+        [999, '#4caf7d']  // excellent
+    ];
+
+    function accentFromScale(scale, value) {
+        for (var i = 0; i < scale.length; i++) {
+            if (value <= scale[i][0]) return scale[i][1];
+        }
+        return scale[scale.length - 1][1];
+    }
+
+    function firstNumber(text) {
+        var m = text.match(/([\d.]+)/);
+        return m ? parseFloat(m[1]) : null;
+    }
+
+    // Convert wind speed to m/s regardless of unit
+    function parseWindMs(text) {
+        var m;
+        m = text.match(/([\d.]+)\s*km\/h/i);
+        if (m) return parseFloat(m[1]) / 3.6;
+        m = text.match(/([\d.]+)\s*mph/i);
+        if (m) return parseFloat(m[1]) * 0.447;
+        m = text.match(/([\d.]+)\s*Bft/i);
+        if (m) return parseFloat(m[1]); // Beaufort ≈ m/s close enough for color scale
+        m = text.match(/([\d.]+)\s*m\/s/i);
+        if (m) return parseFloat(m[1]);
+        return null;
+    }
+
+    // Parse visibility, normalise to km
+    function parseVisKm(text) {
+        var m;
+        m = text.match(/([\d.]+)\s*km/i);
+        if (m) return parseFloat(m[1]);
+        m = text.match(/([\d.]+)\s*m\b/i); // metres, not m/s
+        if (m) return parseFloat(m[1]) / 1000;
+        return null;
+    }
+
+    function resolveAccentColor(btText, iconCls) {
+        // Temperature
+        var c = parseCelsius(btText);
+        if (c === null && /fa-temperature|fa-thermometer/.test(iconCls)) {
+            var nm = btText.match(/([-\d.]+)/);
+            if (nm) c = parseFloat(nm[1]);
+        }
+        if (c !== null && !isNaN(c)) return tempToAccentColor(c);
+
+        // UV (fa-sun shared with lux — use value range to distinguish: UV 0–12, lux can be 0–100000)
+        if (/fa-sun/.test(iconCls)) {
+            var n = firstNumber(btText);
+            if (n !== null && n <= 15) return accentFromScale(UV_ACCENT, n);
+        }
+
+        // Rain
+        if (/fa-cloud-showers|fa-cloud-rain|fa-droplet/.test(iconCls)) {
+            var n = firstNumber(btText);
+            if (n !== null) return accentFromScale(RAIN_ACCENT, n);
+        }
+
+        // Wind
+        if (/fa-wind/.test(iconCls)) {
+            var ms = parseWindMs(btText);
+            if (ms === null) ms = firstNumber(btText); // fallback bare number
+            if (ms !== null) return accentFromScale(WIND_ACCENT, ms);
+        }
+
+        // Visibility
+        if (/fa-eye/.test(iconCls)) {
+            var km = parseVisKm(btText);
+            if (km === null) km = firstNumber(btText);
+            if (km !== null) return accentFromScale(VIS_ACCENT, km);
+        }
+
+        return null;
+    }
+
+    /* ── Staleness Indicator (Feature 9) ─────────────────────────── */
+    var STALE_MS = 60 * 60 * 1000; // 1 hour
+
+    function parseFooterDate(text) {
+        var now = new Date();
+        var m;
+        m = text.match(/today\s+(\d+):(\d+)\s*(am|pm)/i);
+        if (m) {
+            var h = +m[1], min = +m[2], ap = m[3].toLowerCase();
+            if (ap === 'pm' && h !== 12) h += 12;
+            if (ap === 'am' && h === 12) h = 0;
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, min);
+        }
+        m = text.match(/yesterday\s+(\d+):(\d+)\s*(am|pm)/i);
+        if (m) {
+            var h = +m[1], min = +m[2], ap = m[3].toLowerCase();
+            if (ap === 'pm' && h !== 12) h += 12;
+            if (ap === 'am' && h === 12) h = 0;
+            var yd = new Date(now - 86400000);
+            return new Date(yd.getFullYear(), yd.getMonth(), yd.getDate(), h, min);
+        }
+        return null; // older than yesterday → stale
+    }
+
+    function updateStaleness(card) {
+        var span = card.querySelector('.dz-time');
+        if (!span) return;
+        var text = (span.textContent || '').trim();
+        if (!text) return;
+        var date = parseFooterDate(text);
+        if (date && (Date.now() - date) < STALE_MS) {
+            card.classList.remove('dz-stale');
+        } else {
+            card.classList.add('dz-stale');
+        }
+    }
+
+    /* ── Main enhancement loop ───────────────────────────────────── */
+    function enhanceCards() {
+        var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        for (var i = 0; i < cards.length; i++) {
+            var card = cards[i];
+            if (!card.querySelector('table[id^="itemtable"]')) continue;
+
+            applyTilt(card);
+            updateStaleness(card);
+
+            var bigtext = card.querySelector('td#bigtext');
+            if (bigtext) {
+                var btText = bigtext.textContent || '';
+                var accentIcon = card.querySelector('i.dz-fa-device');
+                var accentCls  = accentIcon ? (accentIcon.className || '') : '';
+                var accentColor = resolveAccentColor(btText, accentCls);
+                if (accentColor) {
+                    card.classList.add('dz-temp-accent');
+                    card.style.setProperty('--dz-temp-accent', accentColor);
+                }
+            }
+
+        }
+    }
+
+    /* ── State-Change Flash (Feature 2) ──────────────────────────── */
+    (function () {
+        var stateObs = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                if (m.attributeName !== 'data-dz-state') return;
+                var icon = m.target;
+                var newState = icon.getAttribute('data-dz-state');
+                // Walk up to card
+                var el = icon;
+                var card = null;
+                while (el && el !== document.body) {
+                    if (el.classList && el.classList.contains('item') && el.classList.contains('itemBlock')) {
+                        card = el; break;
+                    }
+                    el = el.parentElement;
+                }
+                if (!card) return;
+
+                // Flash ring
+                card.classList.remove('dz-flash-on', 'dz-flash-off');
+                void card.offsetWidth; // force reflow to restart animation
+                card.classList.add(newState === 'on' ? 'dz-flash-on' : 'dz-flash-off');
+                card.addEventListener('animationend', function rm() {
+                    card.removeEventListener('animationend', rm);
+                    card.classList.remove('dz-flash-on', 'dz-flash-off');
+                });
+
+            });
+        });
+
+        function watchIcons() {
+            var icons = document.querySelectorAll('i.dz-fa-device:not([data-dz-watched])');
+            icons.forEach(function (icon) {
+                icon.setAttribute('data-dz-watched', '1');
+                stateObs.observe(icon, { attributes: true, attributeFilter: ['data-dz-state'] });
+            });
+        }
+
+        var domWatch = new MutationObserver(function () { watchIcons(); });
+        function start() {
+            watchIcons();
+            domWatch.observe(document.body, { childList: true, subtree: true });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', start);
+        } else {
+            start();
+        }
+    })();
+
+    window._dzExtraProcessors = window._dzExtraProcessors || [];
+    window._dzExtraProcessors.push(enhanceCards);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', enhanceCards);
+    } else {
+        enhanceCards();
+    }
+    window.addEventListener('hashchange', function () { setTimeout(enhanceCards, 350); });
+})();
+
+
+
+/* ── Feature 7: Sparkline Micro-Charts ──────────────────────────── */
+(function () {
+    'use strict';
+
+    var SENSORS    = ['temp', 'counter', 'Percentage', 'uv', 'rain', 'wind'];
+    var VALUE_KEYS = ['v', 'v_max', 'te', 'hu', 'ba', 'sp', 'u', 'lux', 'mm', 'baro'];
+    var cache      = {}; // idx → values[]
+
+    function svgSparkline(values, idx) {
+        var W = 100, H = 100;
+        // Leave breathing room top/bottom so the line isn't clipped
+        var TOP = 15, BOT = 5;
+        var min = Infinity, max = -Infinity;
+        for (var i = 0; i < values.length; i++) {
+            if (values[i] < min) min = values[i];
+            if (values[i] > max) max = values[i];
+        }
+        var range = max - min || 1;
+        var step  = W / (values.length - 1);
+        var pts   = values.map(function (v, i) {
+            var x = (i * step).toFixed(2);
+            var y = (TOP + (1 - (v - min) / range) * (H - TOP - BOT)).toFixed(2);
+            return x + ',' + y;
+        });
+        var linePts  = pts.join(' ');
+        // Close the area path along the bottom edge
+        var areaPath = 'M' + pts[0] +
+                       ' L' + pts.join(' L') +
+                       ' L' + (W) + ',' + H + ' L0,' + H + ' Z';
+        // Resolve accent color at render time (CSS vars don't resolve in innerHTML SVGs)
+        var color = getComputedStyle(document.documentElement)
+                        .getPropertyValue('--dz-accent-color').trim() || '#4e9af1';
+        var gid = 'dzsg' + (idx || '0');
+        return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"' +
+               ' xmlns="http://www.w3.org/2000/svg">' +
+               '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+               '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.9"/>' +
+               '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.1"/>' +
+               '</linearGradient></defs>' +
+               '<path d="' + areaPath + '" fill="url(#' + gid + ')"/>' +
+               '<polyline points="' + linePts + '" fill="none" stroke="' + color + '"' +
+               ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+               '</svg>';
+    }
+
+    // Base path: strips the hash and trailing filename, keeps the directory
+    // e.g. "http://server:8080/"        → ""
+    //      "http://server/domoticz/"    → "domoticz/"
+    var BASE = (function () {
+        var p = window.location.pathname.replace(/\/[^/]*$/, '/').replace(/^\//, '');
+        return p; // relative, no leading slash
+    })();
+
+    function tryNextSensor(idx, wrap, si) {
+        if (si >= SENSORS.length) return;
+        var url = BASE + 'json.htm?type=command&param=graph&sensor=' + SENSORS[si] + '&idx=' + idx + '&range=day';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var result = data && data.result;
+                if (!result || !result.length) { tryNextSensor(idx, wrap, si + 1); return; }
+                var field = null;
+                VALUE_KEYS.forEach(function (k) {
+                    if (field === null && result[0][k] !== undefined) field = k;
+                });
+                if (!field) { tryNextSensor(idx, wrap, si + 1); return; }
+                var vals = result.map(function (r) { return parseFloat(r[field]); })
+                                 .filter(function (v) { return !isNaN(v); });
+                if (vals.length < 4) { tryNextSensor(idx, wrap, si + 1); return; }
+                cache[idx] = vals;
+                wrap.innerHTML = svgSparkline(vals, idx);
+                wrap.style.display = '';
+            })
+            .catch(function () { tryNextSensor(idx, wrap, si + 1); });
+    }
+
+    function getCardIdx(card) {
+        // Primary: Angular scope has item.idx
+        if (window.angular) {
+            try {
+                var scope = angular.element(card).scope();
+                if (scope) {
+                    var item = scope.item || scope.device || scope.widget;
+                    if (item && item.idx) return String(item.idx);
+                }
+            } catch (e) {}
+        }
+        // Fallback: numeric suffix in the itemtable id
+        var tbl = card.querySelector('table[id^="itemtable"]');
+        if (tbl) {
+            var m = tbl.id.match(/\d+/);
+            if (m) return m[0];
+        }
+        return null;
+    }
+
+    function addSparklines() {
+        var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        for (var c = 0; c < cards.length; c++) {
+            var card = cards[c];
+            if (card.querySelector('.dz-sparkline-wrap')) continue;
+            if (!card.querySelector('table[id^="itemtable"]')) continue;
+            // Any card showing a numeric reading is a candidate
+            var bigtext = card.querySelector('td#bigtext');
+            if (!bigtext || !/\d/.test(bigtext.textContent || '')) continue;
+            var idx = getCardIdx(card);
+            if (!idx) continue;
+            // Ensure card is a positioning context for the absolute overlay
+            card.style.position = 'relative';
+            var wrap = document.createElement('div');
+            wrap.className = 'dz-sparkline-wrap';
+            wrap.style.display = 'none';
+            // Insert as first child so it sits behind all card content
+            card.insertBefore(wrap, card.firstChild);
+            if (cache[idx]) {
+                wrap.innerHTML = svgSparkline(cache[idx], idx);
+                wrap.style.display = '';
+            } else {
+                tryNextSensor(idx, wrap, 0);
+            }
+        }
+    }
+
+    window._dzExtraProcessors = window._dzExtraProcessors || [];
+    window._dzExtraProcessors.push(addSparklines);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addSparklines);
+    } else {
+        addSparklines();
+    }
+    window.addEventListener('hashchange', function () { setTimeout(addSparklines, 500); });
+})();
+
+
+/* ── Feature 8: Slash-to-Search + Keyboard Tab Shortcuts ─────────── */
+(function () {
+    'use strict';
+
+    // Press 1–9 while not in a text field to jump to these routes
+    var NAV = {
+        '1': 'Dashboard',
+        '2': 'Switches',
+        '3': 'Scenes',
+        '4': 'Temp',
+        '5': 'Weather',
+        '6': 'Utility',
+        '7': 'Cameras',
+        '8': 'Log',
+        '9': 'Setup'
+    };
+
+    var overlay = null;
+    var inputEl = null;
+    var listEl  = null;
+    var activeI = -1;
+
+    function escHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function getCards() {
+        var out = [];
+        document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item').forEach(function (card) {
+            if (!card.querySelector('table[id^="itemtable"]')) return;
+            var nameEl = card.querySelector('td#name');
+            var name   = nameEl ? (nameEl.textContent || '').trim() : '';
+            if (!name) return;
+            var icon   = card.querySelector('i.dz-fa-device');
+            var iCls   = icon ? ((icon.className.match(/fa-[\w-]+/) || [])[0] || 'fa-circle') : 'fa-circle';
+            out.push({ name: name, card: card, icon: iCls });
+        });
+        return out;
+    }
+
+    function render(query) {
+        var q = query.trim().toLowerCase();
+        var all = getCards();
+        var hits = q ? all.filter(function (d) { return d.name.toLowerCase().indexOf(q) !== -1; })
+                      : all.slice(0, 9);
+        listEl.innerHTML = '';
+        activeI = -1;
+        hits.slice(0, 10).forEach(function (d, i) {
+            var el = document.createElement('div');
+            el.className = 'dz-search-item';
+            el.innerHTML = '<i class="fa-solid ' + d.icon + '"></i>' + escHtml(d.name);
+            el.addEventListener('mouseenter', function () { highlight(i); });
+            el.addEventListener('click', function () { pick(d); });
+            listEl.appendChild(el);
+        });
+    }
+
+    function highlight(i) {
+        var items = listEl.querySelectorAll('.dz-search-item');
+        if (activeI >= 0 && items[activeI]) items[activeI].classList.remove('dz-search-active');
+        activeI = i;
+        if (items[activeI]) items[activeI].classList.add('dz-search-active');
+    }
+
+    function pick(d) {
+        close();
+        d.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        d.card.classList.add('dz-flash-on');
+        setTimeout(function () { d.card.classList.remove('dz-flash-on'); }, 700);
+    }
+
+    function open() {
+        if (overlay) return;
+
+        overlay = document.createElement('div');
+        overlay.id = 'dz-search-overlay';
+
+        var box = document.createElement('div');
+        box.id  = 'dz-search-box';
+
+        inputEl = document.createElement('input');
+        inputEl.id          = 'dz-search-input';
+        inputEl.type        = 'text';
+        inputEl.placeholder = 'Search devices…';
+        inputEl.autocomplete = 'off';
+
+        listEl = document.createElement('div');
+        listEl.id = 'dz-search-results';
+
+        var hint = document.createElement('div');
+        hint.className = 'dz-search-hint';
+        hint.innerHTML =
+            '<span><kbd>↑↓</kbd> navigate</span>' +
+            '<span><kbd>↵</kbd> go to</span>' +
+            '<span><kbd>Esc</kbd> close</span>' +
+            '<span><kbd>1–9</kbd> jump to section</span>';
+
+        box.appendChild(inputEl);
+        box.appendChild(listEl);
+        box.appendChild(hint);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        inputEl.addEventListener('input', function () { render(this.value); });
+        inputEl.addEventListener('keydown', function (e) {
+            var items = listEl.querySelectorAll('.dz-search-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault(); highlight(Math.min(activeI + 1, items.length - 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault(); highlight(Math.max(activeI - 1, 0));
+            } else if (e.key === 'Enter') {
+                if (activeI >= 0 && items[activeI]) items[activeI].click();
+            } else if (e.key === 'Escape') {
+                close();
+            }
+        });
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) close();
+        });
+
+        render('');
+        setTimeout(function () { if (inputEl) inputEl.focus(); }, 25);
+    }
+
+    function close() {
+        if (overlay) { overlay.remove(); overlay = null; inputEl = null; listEl = null; }
+    }
+
+    function inInputField(target) {
+        var tag = (target.tagName || '').toUpperCase();
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (inInputField(e.target) && !overlay) return;
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        if (e.key === '/' && !overlay && !inInputField(e.target)) {
+            e.preventDefault();
+            open();
+            return;
+        }
+
+        if (!overlay && !inInputField(e.target) && NAV[e.key]) {
+            e.preventDefault();
+            window.location.hash = '/' + NAV[e.key];
+        }
+    });
+})();
