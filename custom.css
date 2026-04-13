@@ -4398,14 +4398,6 @@ i.dz-fa-device[data-dz-state="on"].fa-triangle-exclamation {
 }
 
 
-/* ══════════════════════════════════════════════════════════════════
-   29. AMBIENT DEVICE GLOW
-   ══════════════════════════════════════════════════════════════════ */
-
-.dz-device-glow {
-    transition: box-shadow 0.7s ease;
-}
-
 
 /* ══════════════════════════════════════════════════════════════════
    30. DEAD DEVICE STALENESS INDICATOR
