@@ -1434,10 +1434,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function parseCelsius(text) {
-        var m = text.match(/([-\d.]+)\s*°([CF])/);
+        // Match "21.5 °C", "21.5°C", "21.5 C", "21.5 °F", "21.5 F" etc.
+        var m = text.match(/([-\d.]+)\s*°?\s*([CF])\b/i);
         if (!m) return null;
         var v = parseFloat(m[1]);
-        if (m[2] === 'F') v = (v - 32) * 5 / 9;
+        if (m[2].toUpperCase() === 'F') v = (v - 32) * 5 / 9;
         return v;
     }
 
@@ -1490,8 +1491,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
             var bigtext = card.querySelector('td#bigtext');
             if (bigtext) {
-                var c = parseCelsius(bigtext.textContent || '');
-                if (c !== null) {
+                var btText = bigtext.textContent || '';
+                var c = parseCelsius(btText);
+                // Fallback: if icon is a thermometer and bigtext has a number, use that value
+                if (c === null) {
+                    var icon = card.querySelector('i.dz-fa-device');
+                    if (icon && /fa-temperature|fa-thermometer/.test(icon.className || '')) {
+                        var nm = btText.match(/([-\d.]+)/);
+                        if (nm) c = parseFloat(nm[1]);
+                    }
+                }
+                if (c !== null && !isNaN(c)) {
                     card.classList.add('dz-temp-accent');
                     card.style.setProperty('--dz-temp-accent', tempToAccentColor(c));
                 }
