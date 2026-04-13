@@ -1762,14 +1762,14 @@ document.addEventListener('DOMContentLoaded', function () {
         console.debug('[dz-sparkline] addSparklines: found', cards.length, 'candidate cards');
         for (var c = 0; c < cards.length; c++) {
             var card = cards[c];
-            if (card.querySelector('.dz-sparkline-wrap')) continue;
+            if (card.querySelector('.dz-sparkline-wrap')) { console.debug('[dz-sparkline] card', c, 'SKIP: already has sparkline'); continue; }
             var tbl = card.querySelector('table[id^="itemtable"]');
-            if (!tbl) continue;
+            if (!tbl) { console.debug('[dz-sparkline] card', c, 'SKIP: no itemtable (tables found:', Array.from(card.querySelectorAll('table')).map(function(t){return t.id;}), ')'); continue; }
             // Any card showing a numeric reading is a candidate
             var bigtext = card.querySelector('td#bigtext');
-            if (!bigtext || !/\d/.test(bigtext.textContent || '')) continue;
+            if (!bigtext || !/\d/.test(bigtext.textContent || '')) { console.debug('[dz-sparkline] card', c, 'SKIP: bigtext=', bigtext ? '"' + bigtext.textContent + '"' : 'null'); continue; }
             var idxM = tbl.id.match(/\d+/);
-            if (!idxM) continue;
+            if (!idxM) { console.debug('[dz-sparkline] card', c, 'SKIP: no idx in table id', tbl.id); continue; }
             var idx  = idxM[0];
             var wrap = document.createElement('div');
             wrap.className = 'dz-sparkline-wrap';
