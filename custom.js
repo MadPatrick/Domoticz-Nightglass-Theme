@@ -1381,3 +1381,489 @@ document.addEventListener('DOMContentLoaded', function () {
     window._dzExtraProcessors = window._dzExtraProcessors || [];
     window._dzExtraProcessors.push(replaceMoonImages);
 })();
+
+
+/* ══════════════════════════════════════════════════════════════════
+   MIND-BLOWING FEATURES
+   ══════════════════════════════════════════════════════════════════ */
+
+
+/* ── Features: 3D Tilt · Temperature Accent · Ambient Glow · Staleness · Flash observer ── */
+(function () {
+    'use strict';
+
+    /* ── 3D Card Tilt (Feature 3) ─────────────────────────────────── */
+    var TILT_MAX = 7; // degrees
+
+    function applyTilt(card) {
+        if (card._dzTiltAttached) return;
+        card._dzTiltAttached = true;
+        card.classList.add('dz-tilt-enabled');
+        card.addEventListener('mousemove', function (e) {
+            var rect = card.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            var dx = (e.clientX - cx) / (rect.width / 2);
+            var dy = (e.clientY - cy) / (rect.height / 2);
+            var rx = (-dy * TILT_MAX).toFixed(1);
+            var ry = ( dx * TILT_MAX).toFixed(1);
+            card.style.transform = 'perspective(700px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+        });
+        card.addEventListener('mouseleave', function () {
+            card.style.transform = '';
+        });
+    }
+
+    /* ── Temperature-Reactive Card Accent (Feature 4) ─────────────── */
+    var TEMP_ACCENT = [
+        [  0, '#29b6f6'], //  ≤ 0 °C — ice blue
+        [  5, '#29b6f6'], //  ≤ 5   — cold
+        [ 10, '#4dd0e1'], //  ≤ 10  — cool
+        [ 15, '#66bb6a'], //  ≤ 15  — mild
+        [ 20, '#4caf7d'], //  ≤ 20  — comfortable
+        [ 25, '#ffa726'], //  ≤ 25  — warm
+        [ 30, '#ff7043'], //  ≤ 30  — hot
+        [999, '#e05555']  //  > 30  — very hot
+    ];
+
+    function tempToAccentColor(c) {
+        for (var i = 0; i < TEMP_ACCENT.length; i++) {
+            if (c <= TEMP_ACCENT[i][0]) return TEMP_ACCENT[i][1];
+        }
+        return '#e05555';
+    }
+
+    function parseCelsius(text) {
+        var m = text.match(/([-\d.]+)\s*°([CF])/);
+        if (!m) return null;
+        var v = parseFloat(m[1]);
+        if (m[2] === 'F') v = (v - 32) * 5 / 9;
+        return v;
+    }
+
+    /* ── Ambient Device Glow (Feature 5) ─────────────────────────── */
+    function applyDeviceGlow(card, icon) {
+        var state   = icon.getAttribute('data-dz-state');
+        var colorOn = (icon.getAttribute('data-dz-color-on') || '').trim();
+        card.classList.add('dz-device-glow');
+        if (state === 'on' && /^#[0-9a-f]{6}$/i.test(colorOn) && colorOn !== '#6c757d') {
+            var r = parseInt(colorOn.slice(1, 3), 16);
+            var g = parseInt(colorOn.slice(3, 5), 16);
+            var b = parseInt(colorOn.slice(5, 7), 16);
+            card.style.boxShadow = '0 0 20px 4px rgba(' + r + ',' + g + ',' + b + ',0.22), 0 2px 8px rgba(0,0,0,0.25)';
+        } else {
+            card.style.boxShadow = '';
+        }
+    }
+
+    /* ── Staleness Indicator (Feature 9) ─────────────────────────── */
+    var STALE_MS = 60 * 60 * 1000; // 1 hour
+
+    function parseFooterDate(text) {
+        var now = new Date();
+        var m;
+        m = text.match(/today\s+(\d+):(\d+)\s*(am|pm)/i);
+        if (m) {
+            var h = +m[1], min = +m[2], ap = m[3].toLowerCase();
+            if (ap === 'pm' && h !== 12) h += 12;
+            if (ap === 'am' && h === 12) h = 0;
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, min);
+        }
+        m = text.match(/yesterday\s+(\d+):(\d+)\s*(am|pm)/i);
+        if (m) {
+            var h = +m[1], min = +m[2], ap = m[3].toLowerCase();
+            if (ap === 'pm' && h !== 12) h += 12;
+            if (ap === 'am' && h === 12) h = 0;
+            var yd = new Date(now - 86400000);
+            return new Date(yd.getFullYear(), yd.getMonth(), yd.getDate(), h, min);
+        }
+        return null; // older than yesterday → stale
+    }
+
+    function updateStaleness(card) {
+        var span = card.querySelector('.dz-time');
+        if (!span) return;
+        var text = (span.textContent || '').trim();
+        if (!text) return;
+        var date = parseFooterDate(text);
+        if (date && (Date.now() - date) < STALE_MS) {
+            card.classList.remove('dz-stale');
+        } else {
+            card.classList.add('dz-stale');
+        }
+    }
+
+    /* ── Main enhancement loop ───────────────────────────────────── */
+    function enhanceCards() {
+        var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        for (var i = 0; i < cards.length; i++) {
+            var card = cards[i];
+            if (!card.querySelector('table[id^="itemtable"]')) continue;
+
+            applyTilt(card);
+            updateStaleness(card);
+
+            var bigtext = card.querySelector('td#bigtext');
+            if (bigtext) {
+                var c = parseCelsius(bigtext.textContent || '');
+                if (c !== null) {
+                    card.classList.add('dz-temp-accent');
+                    card.style.setProperty('--dz-temp-accent', tempToAccentColor(c));
+                }
+            }
+
+            var icon = card.querySelector('i.dz-fa-device');
+            if (icon) applyDeviceGlow(card, icon);
+        }
+    }
+
+    /* ── State-Change Flash (Feature 2) ──────────────────────────── */
+    (function () {
+        var stateObs = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                if (m.attributeName !== 'data-dz-state') return;
+                var icon = m.target;
+                var newState = icon.getAttribute('data-dz-state');
+                // Walk up to card
+                var el = icon;
+                var card = null;
+                while (el && el !== document.body) {
+                    if (el.classList && el.classList.contains('item') && el.classList.contains('itemBlock')) {
+                        card = el; break;
+                    }
+                    el = el.parentElement;
+                }
+                if (!card) return;
+
+                // Flash ring
+                card.classList.remove('dz-flash-on', 'dz-flash-off');
+                void card.offsetWidth; // force reflow to restart animation
+                card.classList.add(newState === 'on' ? 'dz-flash-on' : 'dz-flash-off');
+                card.addEventListener('animationend', function rm() {
+                    card.removeEventListener('animationend', rm);
+                    card.classList.remove('dz-flash-on', 'dz-flash-off');
+                });
+
+                // Refresh glow
+                applyDeviceGlow(card, icon);
+            });
+        });
+
+        function watchIcons() {
+            var icons = document.querySelectorAll('i.dz-fa-device:not([data-dz-watched])');
+            icons.forEach(function (icon) {
+                icon.setAttribute('data-dz-watched', '1');
+                stateObs.observe(icon, { attributes: true, attributeFilter: ['data-dz-state'] });
+            });
+        }
+
+        var domWatch = new MutationObserver(function () { watchIcons(); });
+        function start() {
+            watchIcons();
+            domWatch.observe(document.body, { childList: true, subtree: true });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', start);
+        } else {
+            start();
+        }
+    })();
+
+    window._dzExtraProcessors = window._dzExtraProcessors || [];
+    window._dzExtraProcessors.push(enhanceCards);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', enhanceCards);
+    } else {
+        enhanceCards();
+    }
+    window.addEventListener('hashchange', function () { setTimeout(enhanceCards, 350); });
+})();
+
+
+/* ── Feature 6: Time-of-Day Accent Shift ─────────────────────────── */
+(function () {
+    'use strict';
+
+    var SCHEDULE = [
+        { from:  0, dark: '#8b9fd4', light: '#3a5cad' }, // midnight — cool indigo
+        { from:  5, dark: '#f4a34b', light: '#c47a1e' }, // dawn — warm amber
+        { from:  8, dark: '#4e9af1', light: '#1a6fc8' }, // morning — default blue
+        { from: 17, dark: '#f07840', light: '#c04f18' }, // sunset — orange
+        { from: 20, dark: '#9c77e0', light: '#6a3dba' }, // evening — violet
+        { from: 22, dark: '#6a7ec2', light: '#3049a0' }, // late night — indigo
+    ];
+
+    var todStyle = null;
+
+    function pickAccent(h) {
+        var entry = SCHEDULE[0];
+        for (var i = 0; i < SCHEDULE.length; i++) {
+            if (h >= SCHEDULE[i].from) entry = SCHEDULE[i];
+        }
+        return document.body.classList.contains('dz-light') ? entry.light : entry.dark;
+    }
+
+    function applyAccent() {
+        if (!todStyle) {
+            todStyle = document.createElement('style');
+            todStyle.id = 'dz-tod-accent';
+            document.head.appendChild(todStyle);
+        }
+        var color = pickAccent(new Date().getHours());
+        todStyle.textContent = ':root{--dz-accent-color:' + color + ';--dz-accent:' + color + ';}';
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyAccent);
+    } else {
+        applyAccent();
+    }
+    setInterval(applyAccent, 15 * 60 * 1000);
+
+    // Re-apply when user toggles dark/light mode
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.id === 'dz-theme-toggle') {
+            setTimeout(applyAccent, 50);
+        }
+    });
+})();
+
+
+/* ── Feature 7: Sparkline Micro-Charts ──────────────────────────── */
+(function () {
+    'use strict';
+
+    var SENSORS    = ['temp', 'counter', 'uv', 'rain', 'wind'];
+    var VALUE_KEYS = ['v', 'v_max', 'te', 'hu', 'ba', 'sp', 'u', 'lux', 'mm', 'baro'];
+    var cache      = {}; // idx → values[]
+
+    function svgSparkline(values) {
+        var W = 84, H = 26, PAD = 2;
+        var min = Infinity, max = -Infinity;
+        for (var i = 0; i < values.length; i++) {
+            if (values[i] < min) min = values[i];
+            if (values[i] > max) max = values[i];
+        }
+        var range = max - min || 1;
+        var step  = (W - PAD * 2) / (values.length - 1);
+        var pts   = values.map(function (v, i) {
+            var x = (PAD + i * step).toFixed(1);
+            var y = (H - PAD - ((v - min) / range) * (H - PAD * 2)).toFixed(1);
+            return x + ',' + y;
+        }).join(' ');
+        return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+            '<polyline points="' + pts + '" fill="none" stroke="var(--dz-accent-color,#4e9af1)"' +
+            ' stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '</svg>';
+    }
+
+    function tryNextSensor(idx, wrap, si) {
+        if (si >= SENSORS.length) return;
+        fetch('/json.htm?type=graph&sensor=' + SENSORS[si] + '&idx=' + idx + '&range=day')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var result = data && data.result;
+                if (!result || !result.length) { tryNextSensor(idx, wrap, si + 1); return; }
+                var field = null;
+                VALUE_KEYS.forEach(function (k) {
+                    if (field === null && result[0][k] !== undefined) field = k;
+                });
+                if (!field) { tryNextSensor(idx, wrap, si + 1); return; }
+                var vals = result.map(function (r) { return parseFloat(r[field]); })
+                                 .filter(function (v) { return !isNaN(v); });
+                if (vals.length < 4) { tryNextSensor(idx, wrap, si + 1); return; }
+                cache[idx] = vals;
+                wrap.innerHTML = svgSparkline(vals);
+            })
+            .catch(function () { tryNextSensor(idx, wrap, si + 1); });
+    }
+
+    function addSparklines() {
+        var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        for (var c = 0; c < cards.length; c++) {
+            var card = cards[c];
+            if (card.querySelector('.dz-sparkline-wrap')) continue;
+            var tbl = card.querySelector('table[id^="itemtable"]');
+            if (!tbl) continue;
+            var bigtext = card.querySelector('td#bigtext');
+            // Only for cards that have a numeric value (temp, humidity, energy, etc.)
+            if (!bigtext || !/([\d.]+)\s*[°%kWmA]/.test(bigtext.textContent || '')) continue;
+            var idxM = tbl.id.match(/\d+/);
+            if (!idxM) continue;
+            var idx  = idxM[0];
+            var wrap = document.createElement('div');
+            wrap.className = 'dz-sparkline-wrap';
+            var footer = card.querySelector('.dz-card-footer');
+            if (footer) { footer.insertBefore(wrap, footer.firstChild); }
+            else        { card.appendChild(wrap); }
+            if (cache[idx]) {
+                wrap.innerHTML = svgSparkline(cache[idx]);
+            } else {
+                tryNextSensor(idx, wrap, 0);
+            }
+        }
+    }
+
+    window._dzExtraProcessors = window._dzExtraProcessors || [];
+    window._dzExtraProcessors.push(addSparklines);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addSparklines);
+    } else {
+        addSparklines();
+    }
+    window.addEventListener('hashchange', function () { setTimeout(addSparklines, 500); });
+})();
+
+
+/* ── Feature 8: Slash-to-Search + Keyboard Tab Shortcuts ─────────── */
+(function () {
+    'use strict';
+
+    // Press 1–9 while not in a text field to jump to these routes
+    var NAV = {
+        '1': 'Dashboard',
+        '2': 'Switches',
+        '3': 'Scenes',
+        '4': 'Temp',
+        '5': 'Weather',
+        '6': 'Utility',
+        '7': 'Cameras',
+        '8': 'Log',
+        '9': 'Setup'
+    };
+
+    var overlay = null;
+    var inputEl = null;
+    var listEl  = null;
+    var activeI = -1;
+
+    function escHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function getCards() {
+        var out = [];
+        document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item').forEach(function (card) {
+            if (!card.querySelector('table[id^="itemtable"]')) return;
+            var nameEl = card.querySelector('td#name');
+            var name   = nameEl ? (nameEl.textContent || '').trim() : '';
+            if (!name) return;
+            var icon   = card.querySelector('i.dz-fa-device');
+            var iCls   = icon ? ((icon.className.match(/fa-[\w-]+/) || [])[0] || 'fa-circle') : 'fa-circle';
+            out.push({ name: name, card: card, icon: iCls });
+        });
+        return out;
+    }
+
+    function render(query) {
+        var q = query.trim().toLowerCase();
+        var all = getCards();
+        var hits = q ? all.filter(function (d) { return d.name.toLowerCase().indexOf(q) !== -1; })
+                      : all.slice(0, 9);
+        listEl.innerHTML = '';
+        activeI = -1;
+        hits.slice(0, 10).forEach(function (d, i) {
+            var el = document.createElement('div');
+            el.className = 'dz-search-item';
+            el.innerHTML = '<i class="fa-solid ' + d.icon + '"></i>' + escHtml(d.name);
+            el.addEventListener('mouseenter', function () { highlight(i); });
+            el.addEventListener('click', function () { pick(d); });
+            listEl.appendChild(el);
+        });
+    }
+
+    function highlight(i) {
+        var items = listEl.querySelectorAll('.dz-search-item');
+        if (activeI >= 0 && items[activeI]) items[activeI].classList.remove('dz-search-active');
+        activeI = i;
+        if (items[activeI]) items[activeI].classList.add('dz-search-active');
+    }
+
+    function pick(d) {
+        close();
+        d.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        d.card.classList.add('dz-flash-on');
+        setTimeout(function () { d.card.classList.remove('dz-flash-on'); }, 700);
+    }
+
+    function open() {
+        if (overlay) return;
+
+        overlay = document.createElement('div');
+        overlay.id = 'dz-search-overlay';
+
+        var box = document.createElement('div');
+        box.id  = 'dz-search-box';
+
+        inputEl = document.createElement('input');
+        inputEl.id          = 'dz-search-input';
+        inputEl.type        = 'text';
+        inputEl.placeholder = 'Search devices…';
+        inputEl.autocomplete = 'off';
+
+        listEl = document.createElement('div');
+        listEl.id = 'dz-search-results';
+
+        var hint = document.createElement('div');
+        hint.className = 'dz-search-hint';
+        hint.innerHTML =
+            '<span><kbd>↑↓</kbd> navigate</span>' +
+            '<span><kbd>↵</kbd> go to</span>' +
+            '<span><kbd>Esc</kbd> close</span>' +
+            '<span><kbd>1–9</kbd> jump to section</span>';
+
+        box.appendChild(inputEl);
+        box.appendChild(listEl);
+        box.appendChild(hint);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        inputEl.addEventListener('input', function () { render(this.value); });
+        inputEl.addEventListener('keydown', function (e) {
+            var items = listEl.querySelectorAll('.dz-search-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault(); highlight(Math.min(activeI + 1, items.length - 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault(); highlight(Math.max(activeI - 1, 0));
+            } else if (e.key === 'Enter') {
+                if (activeI >= 0 && items[activeI]) items[activeI].click();
+            } else if (e.key === 'Escape') {
+                close();
+            }
+        });
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) close();
+        });
+
+        render('');
+        setTimeout(function () { if (inputEl) inputEl.focus(); }, 25);
+    }
+
+    function close() {
+        if (overlay) { overlay.remove(); overlay = null; inputEl = null; listEl = null; }
+    }
+
+    function inInputField(target) {
+        var tag = (target.tagName || '').toUpperCase();
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (inInputField(e.target) && !overlay) return;
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        if (e.key === '/' && !overlay && !inInputField(e.target)) {
+            e.preventDefault();
+            open();
+            return;
+        }
+
+        if (!overlay && !inInputField(e.target) && NAV[e.key]) {
+            e.preventDefault();
+            window.location.hash = '/' + NAV[e.key];
+        }
+    });
+})();
