@@ -1683,7 +1683,7 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     'use strict';
 
-    var SENSORS    = ['temp', 'counter', 'uv', 'rain', 'wind'];
+    var SENSORS    = ['temp', 'counter', 'percentage', 'uv', 'rain', 'wind', 'custom', 'current', 'voltage', 'fan'];
     var VALUE_KEYS = ['v', 'v_max', 'te', 'hu', 'ba', 'sp', 'u', 'lux', 'mm', 'baro'];
     var cache      = {}; // idx → values[]
 
