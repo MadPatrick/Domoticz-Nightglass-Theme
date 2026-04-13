@@ -1757,23 +1757,41 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function getCardIdx(card) {
+        // Primary: Angular scope has item.idx
+        if (window.angular) {
+            try {
+                var scope = angular.element(card).scope();
+                if (scope) {
+                    var item = scope.item || scope.device || scope.widget;
+                    if (item && item.idx) return String(item.idx);
+                }
+            } catch (e) {}
+        }
+        // Fallback: numeric suffix in the itemtable id
+        var tbl = card.querySelector('table[id^="itemtable"]');
+        if (tbl) {
+            var m = tbl.id.match(/\d+/);
+            if (m) return m[0];
+        }
+        return null;
+    }
+
     function addSparklines() {
         var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
         console.debug('[dz-sparkline] addSparklines: found', cards.length, 'candidate cards');
         for (var c = 0; c < cards.length; c++) {
             var card = cards[c];
-            if (card.querySelector('.dz-sparkline-wrap')) { console.debug('[dz-sparkline] card', c, 'SKIP: already has sparkline'); continue; }
-            var tbl = card.querySelector('table[id^="itemtable"]');
-            if (!tbl) { console.debug('[dz-sparkline] card', c, 'SKIP: no itemtable (tables found:', Array.from(card.querySelectorAll('table')).map(function(t){return t.id;}), ')'); continue; }
+            if (card.querySelector('.dz-sparkline-wrap')) continue;
+            if (!card.querySelector('table[id^="itemtable"]')) continue;
             // Any card showing a numeric reading is a candidate
             var bigtext = card.querySelector('td#bigtext');
-            if (!bigtext || !/\d/.test(bigtext.textContent || '')) { console.debug('[dz-sparkline] card', c, 'SKIP: bigtext=', bigtext ? '"' + bigtext.textContent + '"' : 'null'); continue; }
-            var idxM = tbl.id.match(/\d+/);
-            if (!idxM) { console.debug('[dz-sparkline] card', c, 'SKIP: no idx in table id', tbl.id); continue; }
-            var idx  = idxM[0];
+            if (!bigtext || !/\d/.test(bigtext.textContent || '')) continue;
+            var idx = getCardIdx(card);
+            if (!idx) { console.debug('[dz-sparkline] card', c, 'SKIP: could not resolve idx'); continue; }
+            console.debug('[dz-sparkline] card', c, 'idx=' + idx);
             var wrap = document.createElement('div');
             wrap.className = 'dz-sparkline-wrap';
-            // Start hidden; shown only when data arrives
             wrap.style.display = 'none';
             var footer = card.querySelector('.dz-card-footer');
             if (footer) { footer.insertBefore(wrap, footer.firstChild); }
