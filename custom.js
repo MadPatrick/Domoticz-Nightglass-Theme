@@ -1442,7 +1442,119 @@ document.addEventListener('DOMContentLoaded', function () {
         return v;
     }
 
-/* ── Staleness Indicator (Feature 9) ─────────────────────────── */
+    /* ── UV / Rain / Wind / Visibility accent colors ─────────────── */
+
+    // UV index (WHO scale 0–11+)
+    var UV_ACCENT = [
+        [ 2, '#4caf7d'], // low
+        [ 5, '#f0a832'], // moderate
+        [ 7, '#ff7043'], // high
+        [10, '#e05555'], // very high
+        [99, '#9c27b0']  // extreme
+    ];
+
+    // Rain (mm — daily accumulation or current rate)
+    var RAIN_ACCENT = [
+        [  0, '#555770'], // dry
+        [  2, '#64b5f6'], // light
+        [ 10, '#1e88e5'], // moderate
+        [ 25, '#1565c0'], // heavy
+        [999, '#0d47a1']  // very heavy
+    ];
+
+    // Wind speed (m/s)
+    var WIND_ACCENT = [
+        [  1, '#b0b3c6'], // calm
+        [  3, '#4caf7d'], // light breeze
+        [  8, '#f0a832'], // moderate
+        [ 14, '#ff7043'], // strong
+        [999, '#e05555']  // storm
+    ];
+
+    // Visibility (km)
+    var VIS_ACCENT = [
+        [  1, '#e05555'], // very poor
+        [  2, '#ff7043'], // poor
+        [  5, '#f0a832'], // moderate
+        [ 10, '#4e9af1'], // good
+        [999, '#4caf7d']  // excellent
+    ];
+
+    function accentFromScale(scale, value) {
+        for (var i = 0; i < scale.length; i++) {
+            if (value <= scale[i][0]) return scale[i][1];
+        }
+        return scale[scale.length - 1][1];
+    }
+
+    function firstNumber(text) {
+        var m = text.match(/([\d.]+)/);
+        return m ? parseFloat(m[1]) : null;
+    }
+
+    // Convert wind speed to m/s regardless of unit
+    function parseWindMs(text) {
+        var m;
+        m = text.match(/([\d.]+)\s*km\/h/i);
+        if (m) return parseFloat(m[1]) / 3.6;
+        m = text.match(/([\d.]+)\s*mph/i);
+        if (m) return parseFloat(m[1]) * 0.447;
+        m = text.match(/([\d.]+)\s*Bft/i);
+        if (m) return parseFloat(m[1]); // Beaufort ≈ m/s close enough for color scale
+        m = text.match(/([\d.]+)\s*m\/s/i);
+        if (m) return parseFloat(m[1]);
+        return null;
+    }
+
+    // Parse visibility, normalise to km
+    function parseVisKm(text) {
+        var m;
+        m = text.match(/([\d.]+)\s*km/i);
+        if (m) return parseFloat(m[1]);
+        m = text.match(/([\d.]+)\s*m\b/i); // metres, not m/s
+        if (m) return parseFloat(m[1]) / 1000;
+        return null;
+    }
+
+    function resolveAccentColor(btText, iconCls) {
+        // Temperature
+        var c = parseCelsius(btText);
+        if (c === null && /fa-temperature|fa-thermometer/.test(iconCls)) {
+            var nm = btText.match(/([-\d.]+)/);
+            if (nm) c = parseFloat(nm[1]);
+        }
+        if (c !== null && !isNaN(c)) return tempToAccentColor(c);
+
+        // UV (fa-sun shared with lux — use value range to distinguish: UV 0–12, lux can be 0–100000)
+        if (/fa-sun/.test(iconCls)) {
+            var n = firstNumber(btText);
+            if (n !== null && n <= 15) return accentFromScale(UV_ACCENT, n);
+        }
+
+        // Rain
+        if (/fa-cloud-showers|fa-cloud-rain|fa-droplet/.test(iconCls)) {
+            var n = firstNumber(btText);
+            if (n !== null) return accentFromScale(RAIN_ACCENT, n);
+        }
+
+        // Wind
+        if (/fa-wind/.test(iconCls)) {
+            var ms = parseWindMs(btText);
+            if (ms === null) ms = firstNumber(btText); // fallback bare number
+            if (ms !== null) return accentFromScale(WIND_ACCENT, ms);
+        }
+
+        // Visibility
+        if (/fa-eye/.test(iconCls)) {
+            var km = parseVisKm(btText);
+            if (km === null) km = firstNumber(btText);
+            if (km !== null) return accentFromScale(VIS_ACCENT, km);
+        }
+
+        return null;
+    }
+
+    /* ── Staleness Indicator (Feature 9) ─────────────────────────── */
     var STALE_MS = 60 * 60 * 1000; // 1 hour
 
     function parseFooterDate(text) {
@@ -1492,18 +1604,12 @@ document.addEventListener('DOMContentLoaded', function () {
             var bigtext = card.querySelector('td#bigtext');
             if (bigtext) {
                 var btText = bigtext.textContent || '';
-                var c = parseCelsius(btText);
-                // Fallback: if icon is a thermometer and bigtext has a number, use that value
-                if (c === null) {
-                    var icon = card.querySelector('i.dz-fa-device');
-                    if (icon && /fa-temperature|fa-thermometer/.test(icon.className || '')) {
-                        var nm = btText.match(/([-\d.]+)/);
-                        if (nm) c = parseFloat(nm[1]);
-                    }
-                }
-                if (c !== null && !isNaN(c)) {
+                var accentIcon = card.querySelector('i.dz-fa-device');
+                var accentCls  = accentIcon ? (accentIcon.className || '') : '';
+                var accentColor = resolveAccentColor(btText, accentCls);
+                if (accentColor) {
                     card.classList.add('dz-temp-accent');
-                    card.style.setProperty('--dz-temp-accent', tempToAccentColor(c));
+                    card.style.setProperty('--dz-temp-accent', accentColor);
                 }
             }
 
