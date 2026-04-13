@@ -1678,54 +1678,6 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 
 
-/* ── Feature 6: Time-of-Day Accent Shift ─────────────────────────── */
-(function () {
-    'use strict';
-
-    var SCHEDULE = [
-        { from:  0, dark: '#8b9fd4', light: '#3a5cad' }, // midnight — cool indigo
-        { from:  5, dark: '#f4a34b', light: '#c47a1e' }, // dawn — warm amber
-        { from:  8, dark: '#4e9af1', light: '#1a6fc8' }, // morning — default blue
-        { from: 17, dark: '#f07840', light: '#c04f18' }, // sunset — orange
-        { from: 20, dark: '#9c77e0', light: '#6a3dba' }, // evening — violet
-        { from: 22, dark: '#6a7ec2', light: '#3049a0' }, // late night — indigo
-    ];
-
-    var todStyle = null;
-
-    function pickAccent(h) {
-        var entry = SCHEDULE[0];
-        for (var i = 0; i < SCHEDULE.length; i++) {
-            if (h >= SCHEDULE[i].from) entry = SCHEDULE[i];
-        }
-        return document.body.classList.contains('dz-light') ? entry.light : entry.dark;
-    }
-
-    function applyAccent() {
-        if (!todStyle) {
-            todStyle = document.createElement('style');
-            todStyle.id = 'dz-tod-accent';
-            document.head.appendChild(todStyle);
-        }
-        var color = pickAccent(new Date().getHours());
-        todStyle.textContent = ':root{--dz-accent-color:' + color + ';--dz-accent:' + color + ';}';
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', applyAccent);
-    } else {
-        applyAccent();
-    }
-    setInterval(applyAccent, 15 * 60 * 1000);
-
-    // Re-apply when user toggles dark/light mode
-    document.addEventListener('click', function (e) {
-        if (e.target && e.target.id === 'dz-theme-toggle') {
-            setTimeout(applyAccent, 50);
-        }
-    });
-})();
-
 
 /* ── Feature 7: Sparkline Micro-Charts ──────────────────────────── */
 (function () {
