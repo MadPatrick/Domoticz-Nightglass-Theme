@@ -1393,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
     /* ── 3D Card Tilt (Feature 3) ─────────────────────────────────── */
-    var TILT_MAX = 7; // degrees
+    var TILT_MAX = 3; // degrees
 
     function applyTilt(card) {
         if (card._dzTiltAttached) return;
@@ -1441,22 +1441,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return v;
     }
 
-    /* ── Ambient Device Glow (Feature 5) ─────────────────────────── */
-    function applyDeviceGlow(card, icon) {
-        var state   = icon.getAttribute('data-dz-state');
-        var colorOn = (icon.getAttribute('data-dz-color-on') || '').trim();
-        card.classList.add('dz-device-glow');
-        if (state === 'on' && /^#[0-9a-f]{6}$/i.test(colorOn) && colorOn !== '#6c757d') {
-            var r = parseInt(colorOn.slice(1, 3), 16);
-            var g = parseInt(colorOn.slice(3, 5), 16);
-            var b = parseInt(colorOn.slice(5, 7), 16);
-            card.style.boxShadow = '0 0 20px 4px rgba(' + r + ',' + g + ',' + b + ',0.22), 0 2px 8px rgba(0,0,0,0.25)';
-        } else {
-            card.style.boxShadow = '';
-        }
-    }
-
-    /* ── Staleness Indicator (Feature 9) ─────────────────────────── */
+/* ── Staleness Indicator (Feature 9) ─────────────────────────── */
     var STALE_MS = 60 * 60 * 1000; // 1 hour
 
     function parseFooterDate(text) {
@@ -1512,8 +1497,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            var icon = card.querySelector('i.dz-fa-device');
-            if (icon) applyDeviceGlow(card, icon);
         }
     }
 
@@ -1544,8 +1527,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     card.classList.remove('dz-flash-on', 'dz-flash-off');
                 });
 
-                // Refresh glow
-                applyDeviceGlow(card, icon);
             });
         });
 
