@@ -1758,30 +1758,56 @@ document.addEventListener('DOMContentLoaded', function () {
             '</svg>';
     }
 
+    // Base path: strips the hash and trailing filename, keeps the directory
+    // e.g. "http://server:8080/"        → ""
+    //      "http://server/domoticz/"    → "domoticz/"
+    var BASE = (function () {
+        var p = window.location.pathname.replace(/\/[^/]*$/, '/').replace(/^\//, '');
+        return p; // relative, no leading slash
+    })();
+
     function tryNextSensor(idx, wrap, si) {
-        if (si >= SENSORS.length) return;
-        fetch('/json.htm?type=graph&sensor=' + SENSORS[si] + '&idx=' + idx + '&range=day')
+        if (si >= SENSORS.length) {
+            console.debug('[dz-sparkline] idx=' + idx + ': no data found across all sensor types');
+            return;
+        }
+        var url = BASE + 'json.htm?type=graph&sensor=' + SENSORS[si] + '&idx=' + idx + '&range=day';
+        console.debug('[dz-sparkline] fetching', url);
+        fetch(url, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var result = data && data.result;
-                if (!result || !result.length) { tryNextSensor(idx, wrap, si + 1); return; }
+                if (!result || !result.length) {
+                    console.debug('[dz-sparkline] idx=' + idx + ' sensor=' + SENSORS[si] + ': empty result');
+                    tryNextSensor(idx, wrap, si + 1);
+                    return;
+                }
                 var field = null;
                 VALUE_KEYS.forEach(function (k) {
                     if (field === null && result[0][k] !== undefined) field = k;
                 });
-                if (!field) { tryNextSensor(idx, wrap, si + 1); return; }
+                if (!field) {
+                    console.debug('[dz-sparkline] idx=' + idx + ' sensor=' + SENSORS[si] + ': no known value field in', Object.keys(result[0]));
+                    tryNextSensor(idx, wrap, si + 1);
+                    return;
+                }
                 var vals = result.map(function (r) { return parseFloat(r[field]); })
                                  .filter(function (v) { return !isNaN(v); });
                 if (vals.length < 4) { tryNextSensor(idx, wrap, si + 1); return; }
+                console.debug('[dz-sparkline] idx=' + idx + ' sensor=' + SENSORS[si] + ' field=' + field + ' points=' + vals.length);
                 cache[idx] = vals;
                 wrap.innerHTML = svgSparkline(vals);
                 wrap.style.display = '';
             })
-            .catch(function () { tryNextSensor(idx, wrap, si + 1); });
+            .catch(function (err) {
+                console.debug('[dz-sparkline] idx=' + idx + ' sensor=' + SENSORS[si] + ' fetch error:', err);
+                tryNextSensor(idx, wrap, si + 1);
+            });
     }
 
     function addSparklines() {
         var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        console.debug('[dz-sparkline] addSparklines: found', cards.length, 'candidate cards');
         for (var c = 0; c < cards.length; c++) {
             var card = cards[c];
             if (card.querySelector('.dz-sparkline-wrap')) continue;
