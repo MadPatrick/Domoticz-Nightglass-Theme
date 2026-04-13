@@ -1122,6 +1122,10 @@ if (document.readyState === 'loading') {
             }
         });
     }
+
+    /* Expose scheduleBurst so code outside this IIFE (e.g. tab-switch
+       observers in the processCards block) can trigger a replacement pass. */
+    window._dzScheduleBurst = scheduleBurst;
 })();
 
 
@@ -1269,7 +1273,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 needsUpdate = true;
             }
         });
-        if (needsUpdate && typeof scheduleBurst === 'function') scheduleBurst();
+        if (needsUpdate) {
+            if (window._dzScheduleBurst) window._dzScheduleBurst();
+            processCards();
+        }
     });
     function observeTabs() {
         var tabLists = document.querySelectorAll('.dd-favorites-tabs');
@@ -1314,7 +1321,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         needsUpdate = true;
                     }
                 });
-                if (needsUpdate && typeof scheduleBurst === 'function') scheduleBurst();
+                if (needsUpdate) {
+                    if (window._dzScheduleBurst) window._dzScheduleBurst();
+                    processCards();
+                }
             });
             observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
             container._dzTabContentObserved = true;
