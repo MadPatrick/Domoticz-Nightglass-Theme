@@ -360,6 +360,11 @@ strong {
     filter: none !important;
     padding: 0 16px !important;
     height: 54px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    min-width: 0;
 }
 
 /* ── Top-edge accent line ────────────────────────────────── */
@@ -421,13 +426,20 @@ h2#appversion {
 
 /* ── Nav items ────────────────────────────────────────────── */
 
+
 .navbar .nav {
     margin: 0 !important;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    min-width: 0;
 }
+
 
     .navbar .nav > li {
         margin-top: 0;
         margin-left: 2px;
+        min-width: 0;
     }
 
     .navbar .nav li a {
@@ -805,17 +817,18 @@ i.dz-fa-nav {
 /* ── Dark/Light mode toggle button ───────────────────────── */
 
 #dz-theme-style-nav {
-    position: absolute;
-    right: 16px;
+    position: relative;
+    right: 0;
     top: 0;
     height: 54px;
-    margin: 0;
+    margin: 0 0 0 12px;
     padding: 0;
     list-style: none;
     display: flex;
     align-items: center;
     z-index: 1050;
     background: none;
+    flex-shrink: 0;
 }
 
 #dz-theme-style-toggle > a,
