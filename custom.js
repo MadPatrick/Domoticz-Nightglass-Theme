@@ -1555,7 +1555,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /* ── Staleness Indicator (Feature 9) ─────────────────────────── */
-    var STALE_MS = 60 * 60 * 1000; // 1 hour
+    var STALE_MS = 24 * 60 * 60 * 1000; // 1 day
 
     function parseFooterDate(text) {
         var now = new Date();
