@@ -125,6 +125,7 @@ body table#itemtabletrippleicon tr td:first-child + td + td + td + td, body tabl
     list-style: none;
     margin: 0 !important;
     padding: 0;
+    position: relative;
 }
 
     .navbar .nav > li {
