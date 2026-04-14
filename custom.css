@@ -353,32 +353,23 @@ strong {
 
 .navbar-inverse .navbar-inner {
     position: relative;
-    background: rgba(var(--dz-surface-rgb), 0.78) !important;
+    background: var(--dz-surface) !important;
     background-image: none !important;
-    backdrop-filter: blur(16px) saturate(1.5);
-    -webkit-backdrop-filter: blur(16px) saturate(1.5);
-    border-bottom: 1px solid rgba(var(--dz-border-rgb), 0.35) !important;
-    box-shadow: 0 2px 24px rgba(0, 0, 0, 0.4),
-               0 0 1px rgba(var(--dz-accent-rgb), 0.15),
-               inset 0 -1px 0 rgba(var(--dz-accent-rgb), 0.05) !important;
+    border-bottom: 1px solid var(--dz-surface-3) !important;
+    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.3) !important;
     filter: none !important;
     padding: 0 16px !important;
     height: 54px;
 }
 
-/* ── Top-edge accent gradient line ───────────────────────── */
+/* ── Top-edge accent line ────────────────────────────────── */
 .dz-nav-topline {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg,
-        transparent 5%,
-        rgba(var(--dz-accent-rgb), 0.0) 15%,
-        rgba(var(--dz-accent-rgb), 0.35) 50%,
-        rgba(var(--dz-accent-rgb), 0.0) 85%,
-        transparent 95%);
+    background: var(--dz-surface-3);
     pointer-events: none;
     z-index: 1;
 }
@@ -394,13 +385,11 @@ strong {
     margin-right: 4px;
     margin-top: -3px;
     border-radius: 10px;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
-    animation: dzBrandPulse 1.5s ease-out 0.3s;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .brand:hover > img {
     transform: scale(1.08) rotate(-3deg);
-    filter: drop-shadow(0 0 8px rgba(var(--dz-accent-rgb), 0.45));
 }
 
 .brand:hover h1 {
@@ -498,7 +487,7 @@ h2#appversion {
             vertical-align: middle;
             margin-right: 4px;
             opacity: 0.7;
-            transition: opacity 0.25s ease, color 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+            transition: opacity 0.25s ease, color 0.25s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             position: relative;
             z-index: 1;
         }
@@ -506,14 +495,11 @@ h2#appversion {
         .navbar .nav li a:hover > i.dz-fa-icon {
             opacity: 1;
             transform: scale(1.15) translateY(-1px);
-            filter: drop-shadow(0 0 4px rgba(var(--dz-accent-rgb), 0.3));
         }
 
     .navbar .nav .current_page_item > a > i.dz-fa-icon {
         opacity: 1;
         color: var(--dz-accent);
-        filter: drop-shadow(0 0 6px rgba(var(--dz-accent-rgb), 0.4));
-        animation: dzIconShimmer 3s ease-in-out infinite;
     }
 
     /* Gear icon spins on Setup hover */
@@ -801,16 +787,9 @@ i.dz-fa-nav {
 .dz-nav-indicator {
     position: absolute;
     bottom: 0;
-    height: 3px;
-    border-radius: 3px 3px 0 0;
-    background: linear-gradient(90deg,
-        rgba(var(--dz-accent-rgb), 0.2),
-        var(--dz-accent),
-        rgba(var(--dz-accent-rgb), 0.2));
-    box-shadow:
-        0 0 8px rgba(var(--dz-accent-rgb), 0.5),
-        0 0 20px rgba(var(--dz-accent-rgb), 0.2),
-        0 -2px 12px rgba(var(--dz-accent-rgb), 0.15);
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--dz-accent);
     opacity: 0;
     pointer-events: none;
     z-index: 10;
@@ -862,47 +841,106 @@ i.dz-fa-nav {
 
 .navbar .nav .dropdown-menu {
     background: var(--dz-surface) !important;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--dz-surface-3) !important;
     border-radius: 10px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45) !important;
     padding: 6px !important;
     margin-top: 0 !important;
+    /* Slide-down entrance */
+    animation: dzDropdownIn 0.2s ease-out;
+    transform-origin: top right;
 }
+
+    /* Staggered entrance for dropdown items */
+    .navbar .nav .dropdown-menu > li {
+        animation: dzDropdownItemIn 0.25s ease both;
+    }
+    .navbar .nav .dropdown-menu > li:nth-child(1)  { animation-delay: 0.02s; }
+    .navbar .nav .dropdown-menu > li:nth-child(2)  { animation-delay: 0.04s; }
+    .navbar .nav .dropdown-menu > li:nth-child(3)  { animation-delay: 0.06s; }
+    .navbar .nav .dropdown-menu > li:nth-child(4)  { animation-delay: 0.08s; }
+    .navbar .nav .dropdown-menu > li:nth-child(5)  { animation-delay: 0.10s; }
+    .navbar .nav .dropdown-menu > li:nth-child(6)  { animation-delay: 0.12s; }
+    .navbar .nav .dropdown-menu > li:nth-child(7)  { animation-delay: 0.14s; }
+    .navbar .nav .dropdown-menu > li:nth-child(8)  { animation-delay: 0.16s; }
+    .navbar .nav .dropdown-menu > li:nth-child(9)  { animation-delay: 0.18s; }
+    .navbar .nav .dropdown-menu > li:nth-child(10) { animation-delay: 0.20s; }
+    .navbar .nav .dropdown-menu > li:nth-child(11) { animation-delay: 0.22s; }
+    .navbar .nav .dropdown-menu > li:nth-child(12) { animation-delay: 0.24s; }
+    .navbar .nav .dropdown-menu > li:nth-child(13) { animation-delay: 0.26s; }
+    .navbar .nav .dropdown-menu > li:nth-child(14) { animation-delay: 0.28s; }
+    .navbar .nav .dropdown-menu > li:nth-child(15) { animation-delay: 0.30s; }
+    .navbar .nav .dropdown-menu > li:nth-child(16) { animation-delay: 0.32s; }
+    .navbar .nav .dropdown-menu > li:nth-child(17) { animation-delay: 0.34s; }
 
     .navbar .nav .dropdown-menu li a {
         color: var(--dz-text-soft) !important;
         border-radius: 6px !important;
         padding: 8px 14px !important;
         border: none !important;
+        border-left: 2px solid transparent !important;
         background: transparent !important;
-        transition: background 0.15s, color 0.15s;
+        transition: background 0.15s, color 0.15s, border-color 0.15s, padding-left 0.15s;
     }
 
         .navbar .nav .dropdown-menu li a:hover {
-            background: rgba(var(--dz-accent-rgb), 0.1) !important;
+            background: rgba(var(--dz-accent-rgb), 0.08) !important;
             color: var(--dz-text) !important;
+            border-left-color: var(--dz-accent) !important;
+            padding-left: 18px !important;
             transform: none !important;
             box-shadow: none !important;
         }
 
+        /* Icon brightens and shifts accent on hover */
+        .navbar .nav .dropdown-menu li a:hover > i.dz-fa-icon {
+            opacity: 1;
+            color: var(--dz-accent);
+        }
+
     .navbar .nav .dropdown-menu .current_page_item > a {
-        background: rgba(var(--dz-accent-rgb), 0.15) !important;
+        background: rgba(var(--dz-accent-rgb), 0.12) !important;
         border: none !important;
-        color: #fff !important;
+        border-left: 2px solid var(--dz-accent) !important;
+        color: var(--dz-text) !important;
         box-shadow: none !important;
         text-shadow: none !important;
     }
 
         .navbar .nav .dropdown-menu .current_page_item > a:hover {
-            background: rgba(var(--dz-accent-rgb), 0.25) !important;
+            background: rgba(var(--dz-accent-rgb), 0.20) !important;
         }
 
+    /* Danger-colored items: Restart, Shutdown, Logout */
+    .navbar .nav .dropdown-menu li a > i.fa-rotate-right,
+    .navbar .nav .dropdown-menu li a > i.fa-power-off,
+    .navbar .nav .dropdown-menu li a > i.fa-right-from-bracket {
+        color: var(--dz-danger) !important;
+        opacity: 0.7;
+    }
+
+    .navbar .nav .dropdown-menu li a:hover > i.fa-rotate-right,
+    .navbar .nav .dropdown-menu li a:hover > i.fa-power-off,
+    .navbar .nav .dropdown-menu li a:hover > i.fa-right-from-bracket {
+        color: var(--dz-danger) !important;
+        opacity: 1;
+    }
+
+    /* Danger items: text turns red-ish on hover too */
+    .navbar .nav .dropdown-menu li:has(> a > i.fa-power-off) > a:hover,
+    .navbar .nav .dropdown-menu li:has(> a > i.fa-rotate-right) > a:hover,
+    .navbar .nav .dropdown-menu li:has(> a > i.fa-right-from-bracket) > a:hover {
+        background: rgba(224, 85, 85, 0.08) !important;
+        color: var(--dz-danger) !important;
+        border-left-color: var(--dz-danger) !important;
+    }
+
+    /* Dividers — subtle with spacing */
     .navbar .nav .dropdown-menu .divider {
         background-color: var(--dz-surface-3) !important;
         border-bottom: none !important;
-        margin: 4px 6px !important;
+        margin: 5px 10px !important;
+        opacity: 0.6;
     }
 
 .navbar .divider-vertical {
@@ -3200,24 +3238,33 @@ table.dataTable tbody tr.even.selected td {
 
 .sub-tabs {
     border-bottom: 1px solid var(--dz-surface-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
     .sub-tabs > li > a {
-        color: var(--dz-text-soft) !important;
+        color: var(--dz-text-muted) !important;
         background: transparent !important;
         border: none !important;
         border-bottom: 2px solid transparent !important;
-        border-radius: 0 !important;
+        border-radius: 6px 6px 0 0 !important;
         padding: 8px 16px;
-        transition: color 0.15s, border-color 0.15s;
+        font-size: 0.82rem;
+        font-weight: 500;
+        transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
         box-shadow: none !important;
         text-shadow: none !important;
+        position: relative;
     }
 
         .sub-tabs > li > a:hover,
         .sub-tabs > li > a:focus {
             color: var(--dz-text) !important;
-            background: transparent !important;
+            background: rgba(var(--dz-accent-rgb), 0.06) !important;
             border: none !important;
             border-bottom: 2px solid rgba(var(--dz-accent-rgb), 0.3) !important;
             box-shadow: none !important;
@@ -3227,12 +3274,13 @@ table.dataTable tbody tr.even.selected td {
     .sub-tabs > .active > a:hover,
     .sub-tabs > .active > a:focus {
         color: var(--dz-text) !important;
-        background: transparent !important;
+        background: rgba(var(--dz-accent-rgb), 0.08) !important;
         border: none !important;
         border-bottom: 2px solid var(--dz-accent) !important;
-        border-radius: 0 !important;
+        border-radius: 6px 6px 0 0 !important;
         box-shadow: none !important;
         text-shadow: none !important;
+        font-weight: 600;
     }
 
     .sub-tabs > li > a.sub-tabs-apply {
@@ -3240,6 +3288,7 @@ table.dataTable tbody tr.even.selected td {
         border: 1px solid var(--dz-danger) !important;
         border-radius: 6px !important;
         color: #fff !important;
+        font-weight: 600;
     }
 
         .sub-tabs > li > a.sub-tabs-apply:hover {
@@ -3258,19 +3307,22 @@ table.dataTable tbody tr.even.selected td {
 }
 
     #settingscontent .sub-tabs li.active a {
-        background: transparent !important;
+        background: rgba(var(--dz-accent-rgb), 0.08) !important;
         color: var(--dz-text) !important;
         border: none;
         border-bottom: 2px solid var(--dz-accent);
+        font-weight: 600;
     }
 
     #settingscontent .sub-tabs li:not(.active) a {
         color: var(--dz-text-muted);
         border-bottom: 2px solid transparent;
+        transition: color 0.2s ease, background 0.2s ease;
     }
 
         #settingscontent .sub-tabs li:not(.active) a:hover {
             color: var(--dz-text-soft);
+            background: rgba(var(--dz-accent-rgb), 0.04);
         }
 
 #zwavesettingscontent .sub-tabs {
@@ -3278,10 +3330,11 @@ table.dataTable tbody tr.even.selected td {
 }
 
     #zwavesettingscontent .sub-tabs li.active a {
-        background-color: transparent;
+        background-color: rgba(var(--dz-accent-rgb), 0.08);
         color: var(--dz-text);
         border: none;
         border-bottom: 2px solid var(--dz-accent);
+        font-weight: 600;
     }
 
 
@@ -4680,19 +4733,6 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
     }
 }
 
-/* Brand logo pulse ring on load */
-@keyframes dzBrandPulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(var(--dz-accent-rgb), 0.45);
-    }
-    50% {
-        box-shadow: 0 0 0 10px rgba(var(--dz-accent-rgb), 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(var(--dz-accent-rgb), 0);
-    }
-}
-
 /* Gear icon spin on Setup hover */
 @keyframes dzGearSpin {
     0% {
@@ -4706,13 +4746,27 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
     }
 }
 
-/* Active icon shimmer */
-@keyframes dzIconShimmer {
-    0%, 100% {
-        filter: drop-shadow(0 0 4px rgba(var(--dz-accent-rgb), 0.3));
+/* Dropdown slide-down entrance */
+@keyframes dzDropdownIn {
+    from {
+        opacity: 0;
+        transform: scaleY(0.92) translateY(-6px);
     }
-    50% {
-        filter: drop-shadow(0 0 8px rgba(var(--dz-accent-rgb), 0.6)) brightness(1.15);
+    to {
+        opacity: 1;
+        transform: scaleY(1) translateY(0);
+    }
+}
+
+/* Dropdown item staggered entrance */
+@keyframes dzDropdownItemIn {
+    from {
+        opacity: 0;
+        transform: translateX(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
     }
 }
 
