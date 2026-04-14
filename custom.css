@@ -4614,6 +4614,43 @@ i.dz-fa-device[data-dz-state="on"].fa-triangle-exclamation {
     pointer-events: none;
 }
 
+@media (max-width: 1200px) and (min-width: 900px) {
+    .navbar-inverse .navbar-inner {
+        flex-wrap: nowrap;
+        height: 54px;
+        min-height: 54px;
+        overflow-x: auto;
+        overflow-y: visible;
+        background-clip: padding-box;
+    }
+    .navbar .nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-width: 100vw;
+        white-space: nowrap;
+        scrollbar-width: thin;
+    }
+    #dz-theme-style-nav {
+        flex-shrink: 0;
+    }
+}
+
+@media (max-width: 1200px) and (min-width: 900px) {
+    .navbar-inverse .navbar-inner::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 32px;
+        height: 100%;
+        pointer-events: none;
+        background: linear-gradient(to left, var(--dz-surface) 80%, transparent 100%);
+        z-index: 10;
+        display: block;
+    }
+}
+
 /* Prevent navbar from wrapping at medium widths, allow horizontal scroll for nav */
 @media (max-width: 1200px) and (min-width: 900px) {
     .navbar-inverse .navbar-inner {
