@@ -4636,7 +4636,7 @@ i.dz-fa-device[data-dz-state="on"].fa-triangle-exclamation {
     }
 }
 
-@media (max-width: 1200px) and (min-width: 900px) {
+@media (max-width: 1300px) and (min-width: 900px) {
     .navbar-inverse .navbar-inner::after {
         content: '';
         position: absolute;
@@ -4652,7 +4652,7 @@ i.dz-fa-device[data-dz-state="on"].fa-triangle-exclamation {
 }
 
 /* Prevent navbar from wrapping at medium widths, allow horizontal scroll for nav */
-@media (max-width: 1200px) and (min-width: 900px) {
+@media (max-width: 1300px) and (min-width: 900px) {
     .navbar-inverse .navbar-inner {
         flex-wrap: nowrap;
         height: 54px;
