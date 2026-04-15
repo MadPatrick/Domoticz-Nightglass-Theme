@@ -382,6 +382,11 @@ strong {
 /* ── Brand / Logo ─────────────────────────────────────────── */
 
 /* Replace default Domoticz logo with ic_launcher.png */
+
+.brand {
+    margin-top: -10px;
+}
+
 .brand > img {
     content: url('images/ic_launcher.png') !important;
     width: 40px !important;
