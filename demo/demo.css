@@ -63,7 +63,7 @@ body table#itemtabletrippleicon tr td:first-child + td + td + td + td, body tabl
     top: 0;
     left: 0;
     right: 0;
-    z-index: 1030;
+    z-index: 10000;
     overflow: visible;
 }
 
@@ -155,7 +155,7 @@ body table#itemtabletrippleicon tr td:first-child + td + td + td + td, body tabl
     padding: 0;
     margin: 0;
     min-width: 200px;
-    z-index: 1031;
+    z-index: 10001;
 }
 
 .dropdown:hover .dropdown-menu {
