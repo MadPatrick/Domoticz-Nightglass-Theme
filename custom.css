@@ -360,6 +360,24 @@ strong {
     filter: none !important;
     padding: 0 16px !important;
     height: 54px;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+/* Override .container inside navbar: full-width flex row so
+   brand + nav + toggle share the bar without a fixed max-width. */
+.navbar-inverse .navbar-inner > .container,
+.navbar-inverse .navbar-inner > .container-fluid {
+    max-width: none !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 1 1 0px;
+    min-width: 0;
 }
 
 /* ── Top-edge accent line ────────────────────────────────── */
@@ -377,6 +395,11 @@ strong {
 /* ── Brand / Logo ─────────────────────────────────────────── */
 
 /* Replace default Domoticz logo with ic_launcher.png */
+
+.brand {
+    margin-top: -16px !important;
+}
+
 .brand > img {
     content: url('images/ic_launcher.png') !important;
     width: 40px !important;
@@ -421,13 +444,22 @@ h2#appversion {
 
 /* ── Nav items ────────────────────────────────────────────── */
 
+
 .navbar .nav {
     margin: 0 !important;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 0px;
+    justify-content: center;
 }
+
 
     .navbar .nav > li {
         margin-top: 0;
         margin-left: 2px;
+        min-width: 0;
     }
 
     .navbar .nav li a {
@@ -805,15 +837,18 @@ i.dz-fa-nav {
 /* ── Dark/Light mode toggle button ───────────────────────── */
 
 #dz-theme-style-nav {
-    position: absolute;
-    right: 16px;
+    position: relative;
+    right: 0;
     top: 0;
     height: 54px;
-    margin: 0;
+    margin: 0 0 0 12px;
     padding: 0;
     list-style: none;
     display: flex;
     align-items: center;
+    z-index: 1050;
+    background: none;
+    flex-shrink: 0;
 }
 
 #dz-theme-style-toggle > a,
@@ -827,6 +862,9 @@ i.dz-fa-nav {
     background: transparent !important;
     border: none !important;
     transition: color 0.2s;
+    text-decoration: none !important;
+    outline: none;
+    box-shadow: none;
 }
 
     #dz-theme-style-toggle > a:hover,
@@ -846,6 +884,7 @@ i.dz-fa-nav {
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45) !important;
     padding: 6px !important;
     margin-top: 0 !important;
+    z-index: 10001;
     /* Slide-down entrance */
     animation: dzDropdownIn 0.2s ease-out;
     transform-origin: top right;
@@ -1062,10 +1101,6 @@ SECTION.dashCategory .row,
 #weatherwidgets {
     align-items: stretch;
     row-gap: 14px;
-}
-
-#holder > .container-fluid {
-    padding-top: 54px;
 }
 
 
@@ -3904,9 +3939,15 @@ table.mobileitem,
         color: var(--dz-accent);
     }
 
-#divprogress span {
+#divprogress > span:not(.update-warning) {
     background-color: var(--dz-danger);
     border-radius: 8px;
+}
+
+.update-progress-ring span,
+.update-warning,
+.update-warning i {
+    background-color: transparent;
 }
 
 /* Z-Wave labels */
@@ -4355,39 +4396,87 @@ body.dashboard div.item.Fan.onn .img1 img {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   23. RESPONSIVE TWEAKS
+   23. RESPONSIVE NAVBAR
+   ══════════════════════════════════════════════════════════════════
+   Domoticz wraps nav labels in <span class="hidden-phone hidden-tablet">.
+   Bootstrap 2 hides them at <=767px (phone) and 768–979px (tablet).
+   We override those utility classes with our own breakpoints so the
+   Nightglass theme scales cleanly at every viewport width.
+
+   Breakpoints
+   ─────────────
+   >= 1100 px  Full labels — brand, icon + text, carets, toggle
+   <  1100 px  Icon-only   — hide text labels & carets
+   <   600 px  Compact     — hide brand, minimal padding
    ══════════════════════════════════════════════════════════════════ */
 
-@media (width <=767px) {
+/* ── Large desktop (>= 1100px): full labels + carets ──────────── */
+@media (min-width: 1100px) {
+    .navbar .nav > li > a > .hidden-phone,
+    .navbar .nav > li > a > .hidden-tablet {
+        display: inline !important;
+    }
+    .navbar .nav > li > a > b.caret {
+        display: inline-block !important;
+    }
+}
+
+/* ── Below 1100px: icon-only navigation ───────────────────────── */
+@media (max-width: 1099px) {
+    .navbar .nav > li > a > .hidden-phone,
+    .navbar .nav > li > a > .hidden-tablet,
+    .navbar .nav > li > a > span[data-i18n] {
+        display: none !important;
+    }
+    .navbar .nav > li > a > b.caret {
+        display: none !important;
+    }
+    .navbar .nav li a {
+        padding: 16px 12px 14px !important;
+    }
+    .navbar .nav li a > i.dz-fa-icon {
+        margin-right: 0;
+        font-size: 1.05rem;
+    }
+}
+
+/* ── Brand: keep visible down to 600px ────────────────────────── */
+/* Override Bootstrap hidden-phone which kicks in at <=767px       */
+@media (min-width: 600px) and (max-width: 767px) {
+    .navbar-inverse .brand.hidden-phone {
+        display: block !important;
+    }
+}
+
+/* ── Phone (< 600px): hide brand, ultra-compact ──────────────── */
+@media (max-width: 599px) {
     .navbar-inverse .navbar-inner {
         padding: 0 8px !important;
-        height: auto;
     }
-
+    .navbar .brand,
+    .navbar .brand.hidden-phone {
+        display: none !important;
+    }
     .navbar .nav li a {
-        padding: 10px 10px 8px !important;
-        font-size: 0.78rem;
+        padding: 16px 10px 14px !important;
     }
-
-    /* Hide the sliding indicator and topline on narrow screens */
+    .navbar .nav > li {
+        animation: none;
+    }
     .dz-nav-indicator,
     .dz-nav-topline {
         display: none;
     }
+}
 
-    /* Disable staggered entrance on mobile */
-    .navbar .nav > li {
-        animation: none;
-    }
-
+/* ── Card layout adjustments for narrow screens ───────────────── */
+@media (max-width: 767px) {
     body table[id^="itemtable"] tbody tr {
         width: 100% !important;
         margin-left: 0 !important;
         margin-right: 0 !important;
         padding: 10px 12px 8px !important;
     }
-
-    /* On narrow screens, bigtext wraps */
     body table[id^="itemtable"] tr td:first-child + td {
         font-size: 1.1rem !important;
         white-space: normal;
@@ -4714,6 +4803,199 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
     padding: 1px 6px;
     font-family: inherit;
     font-size: 0.72rem;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   UPDATE PAGE
+   ══════════════════════════════════════════════════════════════════ */
+
+#updatecontent {
+    padding: 48px 20px 32px;
+    text-align: center;
+}
+
+#updatecontent h1 {
+    color: var(--dz-text);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+}
+
+#updatecontent h3 {
+    color: var(--dz-text-muted);
+    font-size: 0.95rem;
+    font-weight: 400;
+    margin: 0 0 12px;
+}
+
+/* Spinning icon above the title */
+.update-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    margin-bottom: 20px;
+}
+
+.update-spin-icon {
+    font-size: 1.6rem;
+    color: var(--dz-accent);
+    animation: dzUpdateSpin 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Progress ring */
+.update-progress-ring {
+    position: relative;
+    display: inline-block;
+    margin: 8px 0 18px;
+}
+
+.update-progress-ring svg {
+    transform: rotate(-90deg);
+    display: block;
+}
+
+.update-progress-ring .ring-track {
+    fill: none;
+    stroke: var(--dz-surface-3, #2e3040);
+    stroke-width: 8;
+}
+
+.update-progress-ring .ring-fill {
+    fill: none;
+    stroke: var(--dz-accent, #4e9af1);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease;
+    filter: drop-shadow(0 0 6px rgba(78, 154, 241, 0.35));
+}
+
+.update-progress-ring .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--dz-text);
+    letter-spacing: -0.02em;
+}
+
+/* Warning text below progress */
+.update-warning {
+    display: inline-block;
+    color: var(--dz-warning);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: rgba(240, 168, 50, 0.08);
+    border: 1px solid rgba(240, 168, 50, 0.18);
+}
+
+.update-warning i {
+    margin-right: 4px;
+}
+
+/* Console output section */
+.update-output-section {
+    margin-top: 28px;
+    text-align: left;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.update-output-section h4 {
+    color: var(--dz-text-soft);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.update-output-section h4 i {
+    color: var(--dz-text-muted);
+    margin-right: 6px;
+}
+
+#updateconsole {
+    height: 220px;
+    overflow-y: auto;
+    background: var(--dz-bg, #1b1d25) !important;
+    color: var(--dz-text-soft, #b0b3c6);
+    padding: 14px 16px;
+    font-family: 'Courier New', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    border: 1px solid var(--dz-border, #33354a);
+    border-radius: 10px;
+    text-align: left;
+    -webkit-user-select: text;
+    user-select: text;
+    white-space: pre;
+    word-wrap: normal;
+    overflow-x: auto;
+}
+
+#updateconsole span {
+    display: block;
+}
+
+/* Console colour classes */
+#updateconsole .log-red,
+.log-red { color: var(--dz-danger, #e05555); }
+#updateconsole .log-green,
+.log-green { color: var(--dz-success, #4caf7d); }
+#updateconsole .log-yellow,
+.log-yellow { color: var(--dz-warning, #f0a832); }
+#updateconsole .log-muted,
+.log-muted { color: var(--dz-text-muted, #7c7f93); }
+
+/* Custom scrollbar for the console */
+#updateconsole::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+#updateconsole::-webkit-scrollbar-track {
+    background: transparent;
+}
+#updateconsole::-webkit-scrollbar-thumb {
+    background: var(--dz-border, #33354a);
+    border-radius: 3px;
+}
+#updateconsole::-webkit-scrollbar-thumb:hover {
+    background: var(--dz-text-muted, #7c7f93);
+}
+
+/* Copyright footer (on the update page) */
+#copyright {
+    text-align: center;
+    padding: 20px 0 16px;
+    color: var(--dz-text-faint);
+    font-size: 0.78rem;
+}
+
+#copyright a {
+    color: var(--dz-accent);
+    text-decoration: none;
+}
+
+#copyright a:hover {
+    text-decoration: underline;
+}
+
+@keyframes dzUpdateSpin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 

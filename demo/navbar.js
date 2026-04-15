@@ -19,7 +19,7 @@
     { icon: 'fa-sliders',            label: 'Devices'           },
     { icon: 'fa-charging-station',   label: 'Energy'            },
     { icon: 'fa-users',              label: 'Users'             },
-    { icon: 'fa-download',           label: 'Check for updates' },
+    { icon: 'fa-download',           label: 'Check for updates', href: 'update.html' },
     null,
     { icon: 'fa-code',               label: 'Events'            },
     { icon: 'fa-list',               label: 'User Variables'    },
@@ -41,14 +41,16 @@
       var active = p.id === activePage ? ' class="current_page_item"' : '';
       return '<li' + active + '>' +
         '<a href="' + p.href + '">' +
-        '<i class="dz-fa-icon fa-solid ' + p.icon + '"></i> ' + p.label +
+        '<i class="dz-fa-icon fa-solid ' + p.icon + '"></i> ' +
+        '<span class="hidden-phone hidden-tablet">' + p.label + '</span>' +
         '</a></li>';
     }).join('\n      ');
 
     // Build setup dropdown items
     var setupItems = SETUP_ITEMS.map(function (item) {
       if (!item) return '<li class="divider"></li>';
-      return '<li><a href="#"><i class="dz-fa-icon fa-solid ' + item.icon + '"></i> ' + item.label + '</a></li>';
+      var link = item.href || '#';
+      return '<li><a href="' + link + '"><i class="dz-fa-icon fa-solid ' + item.icon + '"></i> ' + item.label + '</a></li>';
     }).join('\n          ');
 
     var html =
@@ -66,7 +68,7 @@
           navItems +
           '<li class="dropdown">' +
             '<a href="#" class="dropdown-toggle">' +
-              '<i class="dz-fa-icon fa-solid fa-gear"></i> Setup <b class="caret"></b>' +
+              '<i class="dz-fa-icon fa-solid fa-gear"></i> <span class="hidden-phone hidden-tablet">Setup</span> <b class="caret hidden-phone hidden-tablet"></b>' +
             '</a>' +
             '<ul class="dropdown-menu">' + setupItems + '</ul>' +
           '</li>' +
