@@ -3934,9 +3934,15 @@ table.mobileitem,
         color: var(--dz-accent);
     }
 
-#divprogress span {
+#divprogress > span:not(.update-warning) {
     background-color: var(--dz-danger);
     border-radius: 8px;
+}
+
+.update-progress-ring span,
+.update-warning,
+.update-warning i {
+    background-color: transparent;
 }
 
 /* Z-Wave labels */
@@ -4792,6 +4798,199 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
     padding: 1px 6px;
     font-family: inherit;
     font-size: 0.72rem;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   UPDATE PAGE
+   ══════════════════════════════════════════════════════════════════ */
+
+#updatecontent {
+    padding: 48px 20px 32px;
+    text-align: center;
+}
+
+#updatecontent h1 {
+    color: var(--dz-text);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+}
+
+#updatecontent h3 {
+    color: var(--dz-text-muted);
+    font-size: 0.95rem;
+    font-weight: 400;
+    margin: 0 0 12px;
+}
+
+/* Spinning icon above the title */
+.update-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    margin-bottom: 20px;
+}
+
+.update-spin-icon {
+    font-size: 1.6rem;
+    color: var(--dz-accent);
+    animation: dzUpdateSpin 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Progress ring */
+.update-progress-ring {
+    position: relative;
+    display: inline-block;
+    margin: 8px 0 18px;
+}
+
+.update-progress-ring svg {
+    transform: rotate(-90deg);
+    display: block;
+}
+
+.update-progress-ring .ring-track {
+    fill: none;
+    stroke: var(--dz-surface-3, #2e3040);
+    stroke-width: 8;
+}
+
+.update-progress-ring .ring-fill {
+    fill: none;
+    stroke: var(--dz-accent, #4e9af1);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease;
+    filter: drop-shadow(0 0 6px rgba(78, 154, 241, 0.35));
+}
+
+.update-progress-ring .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--dz-text);
+    letter-spacing: -0.02em;
+}
+
+/* Warning text below progress */
+.update-warning {
+    display: inline-block;
+    color: var(--dz-warning);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: rgba(240, 168, 50, 0.08);
+    border: 1px solid rgba(240, 168, 50, 0.18);
+}
+
+.update-warning i {
+    margin-right: 4px;
+}
+
+/* Console output section */
+.update-output-section {
+    margin-top: 28px;
+    text-align: left;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.update-output-section h4 {
+    color: var(--dz-text-soft);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.update-output-section h4 i {
+    color: var(--dz-text-muted);
+    margin-right: 6px;
+}
+
+#updateconsole {
+    height: 220px;
+    overflow-y: auto;
+    background: var(--dz-bg, #1b1d25) !important;
+    color: var(--dz-text-soft, #b0b3c6);
+    padding: 14px 16px;
+    font-family: 'Courier New', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    border: 1px solid var(--dz-border, #33354a);
+    border-radius: 10px;
+    text-align: left;
+    -webkit-user-select: text;
+    user-select: text;
+    white-space: pre;
+    word-wrap: normal;
+    overflow-x: auto;
+}
+
+#updateconsole span {
+    display: block;
+}
+
+/* Console colour classes */
+#updateconsole .log-red,
+.log-red { color: var(--dz-danger, #e05555); }
+#updateconsole .log-green,
+.log-green { color: var(--dz-success, #4caf7d); }
+#updateconsole .log-yellow,
+.log-yellow { color: var(--dz-warning, #f0a832); }
+#updateconsole .log-muted,
+.log-muted { color: var(--dz-text-muted, #7c7f93); }
+
+/* Custom scrollbar for the console */
+#updateconsole::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+#updateconsole::-webkit-scrollbar-track {
+    background: transparent;
+}
+#updateconsole::-webkit-scrollbar-thumb {
+    background: var(--dz-border, #33354a);
+    border-radius: 3px;
+}
+#updateconsole::-webkit-scrollbar-thumb:hover {
+    background: var(--dz-text-muted, #7c7f93);
+}
+
+/* Copyright footer (on the update page) */
+#copyright {
+    text-align: center;
+    padding: 20px 0 16px;
+    color: var(--dz-text-faint);
+    font-size: 0.78rem;
+}
+
+#copyright a {
+    color: var(--dz-accent);
+    text-decoration: none;
+}
+
+#copyright a:hover {
+    text-decoration: underline;
+}
+
+@keyframes dzUpdateSpin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 
