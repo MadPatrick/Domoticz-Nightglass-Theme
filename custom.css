@@ -397,7 +397,7 @@ strong {
 /* Replace default Domoticz logo with ic_launcher.png */
 
 .brand {
-    margin-top: -10px;
+    margin-top: -10px !important;
 }
 
 .brand > img {
