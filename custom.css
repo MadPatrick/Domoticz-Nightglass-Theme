@@ -1989,7 +1989,6 @@ body table[id^="itemtable"] tr td.options {
 }
 
 .dz-text-device table[id^="itemtable"] tr td#status {
-    padding-left: 0 !important;
     margin-top: 4px !important;
 }
 
