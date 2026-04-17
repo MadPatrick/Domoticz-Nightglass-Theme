@@ -317,3 +317,13 @@ body table[id^="itemtable"] tbody {
 .bannercontent {
     padding-top: 54px;
 }
+
+/* ── Settings page demo content ──────────────────────────────────────────── */
+#settingscontent {
+    padding-top: 10px;
+}
+
+    #settingscontent > table tr:hover td {
+        background: rgba(var(--dz-overlay-rgb, 255, 255, 255), 0.02);
+        border-radius: 6px;
+    }

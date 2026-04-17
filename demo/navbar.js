@@ -15,6 +15,7 @@
   ];
 
   var SETUP_ITEMS = [
+    { icon: 'fa-gear',               label: 'Settings',         href: 'settings.html' },
     { icon: 'fa-microchip',          label: 'Hardware'          },
     { icon: 'fa-sliders',            label: 'Devices'           },
     { icon: 'fa-charging-station',   label: 'Energy'            },
