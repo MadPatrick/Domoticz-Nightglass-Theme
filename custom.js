@@ -3228,11 +3228,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Initialize ────────────────────────────────────────────── */
 
+    function retryInjectPanel(attempts) {
+        if (_panelInjected || attempts <= 0) return;
+        injectPanel();
+        if (!_panelInjected) {
+            setTimeout(function () { retryInjectPanel(attempts - 1); }, 500);
+        } else {
+            hookOtherTabs();
+        }
+    }
+
     function init() {
         loadSettings().then(function () {
             applySettings();
             injectPanel();
             hookOtherTabs();
+            if (!_panelInjected) {
+                retryInjectPanel(10);
+            }
         });
     }
 
