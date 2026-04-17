@@ -2883,6 +2883,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!settingsContent) return;
         if (document.getElementById('ng-theme-settings')) return;
 
+        var subTabs = settingsContent.querySelector('.sub-tabs');
+        if (!subTabs) return;
+
         _panelInjected = true;
 
         // Pre-create the wrap (hidden) so it's ready when tab is clicked
@@ -2893,19 +2896,16 @@ document.addEventListener('DOMContentLoaded', function () {
         settingsContent.appendChild(wrap);
         bindEvents(wrap);
 
-        var subTabs = settingsContent.querySelector('.sub-tabs');
-        if (subTabs) {
-            var li = document.createElement('li');
-            li.id = 'ng-settings-tab';
-            var a = document.createElement('a');
-            a.href = 'javascript:void(0)';
-            a.innerHTML = '<i class="fa-solid fa-palette" style="margin-right:4px;"></i> Nightglass';
-            a.addEventListener('click', function () {
-                showNightglassTab(settingsContent, subTabs);
-            });
-            li.appendChild(a);
-            subTabs.appendChild(li);
-        }
+        var li = document.createElement('li');
+        li.id = 'ng-settings-tab';
+        var a = document.createElement('a');
+        a.href = 'javascript:void(0)';
+        a.innerHTML = '<i class="fa-solid fa-palette" style="margin-right:4px;"></i> Nightglass';
+        a.addEventListener('click', function () {
+            showNightglassTab(settingsContent, subTabs);
+        });
+        li.appendChild(a);
+        subTabs.appendChild(li);
     }
 
     /* Find the direct child of settingsContent that contains subTabs,
