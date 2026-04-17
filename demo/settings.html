@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Nightglass Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="../custom.css">
+    <link rel="stylesheet" href="demo.css">
+    <script src="custom.js"></script>
+</head>
+<body>
+<script src="navbar.js"></script>
+<script>buildNavbar('setup');</script>
+
+<div id="holder">
+  <div class="container-fluid">
+    <div style="padding: 16px 0;">
+
+      <!-- page header -->
+      <div class="page-header">
+        <i class="fa-solid fa-gear"></i>
+        Settings
+      </div>
+
+      <!-- Settings content area (mimics Domoticz #settingscontent) -->
+      <div id="settingscontent">
+
+        <!-- Sub-tabs bar (mimics Domoticz settings tabs) -->
+        <ul class="sub-tabs">
+          <li id="demo-tab-system"><a href="javascript:void(0)">System</a></li>
+          <li id="demo-tab-network"><a href="javascript:void(0)">Network</a></li>
+          <li id="demo-tab-security"><a href="javascript:void(0)">Security</a></li>
+          <li id="demo-tab-location"><a href="javascript:void(0)">Location</a></li>
+        </ul>
+
+        <!-- Demo system settings (placeholder content shown by default) -->
+        <div id="demo-settings-system" class="demo-settings-pane" style="padding: 24px 0;">
+          <table style="width:100%; border-collapse:separate; border-spacing:0 8px;">
+            <tr>
+              <td style="width:220px; padding:8px 12px; color:var(--dz-text-soft); font-size:0.88rem; font-weight:500;">Language</td>
+              <td style="padding:8px 12px;">
+                <select style="min-width:200px;">
+                  <option>English</option>
+                  <option>Nederlands</option>
+                  <option>Deutsch</option>
+                  <option>Français</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px; color:var(--dz-text-soft); font-size:0.88rem; font-weight:500;">Dashboard Type</td>
+              <td style="padding:8px 12px;">
+                <select style="min-width:200px;">
+                  <option>Standard</option>
+                  <option>Dashboard 2.0</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px; color:var(--dz-text-soft); font-size:0.88rem; font-weight:500;">Temp Unit</td>
+              <td style="padding:8px 12px;">
+                <select style="min-width:200px;">
+                  <option>Celsius</option>
+                  <option>Fahrenheit</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 12px; color:var(--dz-text-soft); font-size:0.88rem; font-weight:500;">Wind Unit</td>
+              <td style="padding:8px 12px;">
+                <select style="min-width:200px;">
+                  <option>m/s</option>
+                  <option>km/h</option>
+                  <option>Beaufort</option>
+                </select>
+              </td>
+            </tr>
+          </table>
+          <br>
+          <button class="btn btn-primary" onclick="alert('Demo only — settings not saved')">
+            <i class="fa-solid fa-floppy-disk" style="margin-right:4px;"></i> Apply Settings
+          </button>
+        </div>
+
+      </div><!-- /settingscontent -->
+
+    </div>
+  </div>
+</div>
+
+<div class="page-bottom"></div>
+
+<script>
+// Demo: wire up the placeholder tabs to show/hide content
+(function() {
+  var tabs = document.querySelectorAll('#settingscontent .sub-tabs li');
+  var systemPane = document.getElementById('demo-settings-system');
+
+  tabs.forEach(function(tab) {
+    tab.querySelector('a').addEventListener('click', function() {
+      // Deactivate all
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+
+      // Show system pane only for System tab, hide for others
+      if (tab.id === 'demo-tab-system') {
+        systemPane.style.display = '';
+      } else {
+        systemPane.style.display = 'none';
+      }
+
+      // Hide Nightglass panel when switching to other tabs
+      var ngWrap = document.getElementById('ng-theme-settings-wrap');
+      if (ngWrap && tab.id !== 'ng-settings-tab') {
+        ngWrap.style.display = 'none';
+      }
+    });
+  });
+
+  // Default: activate System tab
+  document.getElementById('demo-tab-system').classList.add('active');
+})();
+</script>
+
+</body>
+</html>

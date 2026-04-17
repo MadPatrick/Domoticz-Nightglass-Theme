@@ -1225,8 +1225,28 @@ if (document.readyState === 'loading') {
             var status  = tr.querySelector('td#status');
             if (!bigtext || !status) continue;
 
-            var fullText = (bigtext.textContent || '').trim();
-            if (!fullText) continue;
+            /* Extract and decode the bigtext cell content.
+               Domoticz can double-escape HTML entities (&amp;nbsp; instead
+               of &nbsp;, &lt;br&gt; instead of <br>).  One decode pass via
+               a <textarea> (RCDATA: entities decoded, tags kept as text)
+               normalises both cases so the content can be re-inserted as
+               HTML and rendered naturally by the browser.  Styling (spans,
+               min-width columns, images) from the device plugin is preserved
+               this way; extracting plain text would lose the visual spacing
+               built into the markup. */
+            var rawHtml = bigtext.innerHTML || '';
+            var tmp = document.createElement('textarea');
+            tmp.innerHTML = rawHtml;
+            var decoded = tmp.value;          /* entities decoded, tags intact */
+
+            /* Parse the decoded HTML once into a temporary container.
+               Moving parsed DOM nodes into msgDiv avoids a second innerHTML
+               assignment and limits the innerHTML surface to one call on
+               content already in the page's own trusted DOM. */
+            var tmpDiv = document.createElement('div');
+            tmpDiv.innerHTML = decoded; /* lgtm[js/xss-through-dom] */
+            var plainText = (tmpDiv.textContent || tmpDiv.innerText || '').replace(/\s+/g, ' ').trim();
+            if (!plainText) continue;
 
             tr.setAttribute('data-dz-text-done', '1');
 
@@ -1236,11 +1256,14 @@ if (document.readyState === 'loading') {
             status.textContent = '';
             var msgDiv = document.createElement('div');
             msgDiv.className = 'dz-text-msg';
-            msgDiv.textContent = fullText;
+            /* Move already-parsed nodes — no second HTML re-parse. */
+            while (tmpDiv.firstChild) {
+                msgDiv.appendChild(tmpDiv.firstChild);
+            }
             status.appendChild(msgDiv);
 
-            if (fullText.length > maxPreviewLen) {
-                bigtext.textContent = fullText.substring(0, maxPreviewLen) + '…';
+            if (plainText.length > maxPreviewLen) {
+                bigtext.textContent = plainText.substring(0, maxPreviewLen) + '…';
             }
         }
     }
@@ -1766,6 +1789,140 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 
 
+/* ── Update Page Enhancer ───────────────────────────────────────── */
+/* Transforms the stock Domoticz update/restart page into the
+   Nightglass styled version with SVG progress ring, icon wrap,
+   and themed console output section.                              */
+(function () {
+    'use strict';
+
+    var enhanced = false;
+
+    function enhanceUpdatePage() {
+        var uc = document.getElementById('updatecontent');
+        if (!uc || enhanced) return;
+
+        var center = uc.querySelector('center');
+        if (!center) return;
+
+        enhanced = true;
+
+        /* ── 1. Inject spinning icon wrap before h1 ─────────────── */
+        var h1 = center.querySelector('h1');
+        if (h1 && !center.querySelector('.update-icon-wrap')) {
+            var iconWrap = document.createElement('div');
+            iconWrap.className = 'update-icon-wrap';
+            iconWrap.innerHTML = '<i class="fa-solid fa-arrow-rotate-right update-spin-icon"></i>';
+            center.insertBefore(iconWrap, h1);
+        }
+
+        /* ── 2. Replace canvas progress with SVG ring ───────────── */
+        var divProg = document.getElementById('divprogress');
+        if (divProg) {
+            var canvas = divProg.querySelector('canvas');
+            if (canvas) {
+                var ringDiv = document.createElement('div');
+                ringDiv.className = 'update-progress-ring';
+                ringDiv.id = 'dzProgressRing';
+                ringDiv.innerHTML =
+                    '<svg viewBox="0 0 160 160" width="160" height="160" xmlns="http://www.w3.org/2000/svg">' +
+                    '<circle class="ring-track" cx="80" cy="80" r="70"/>' +
+                    '<circle class="ring-fill" cx="80" cy="80" r="70" stroke-dasharray="439.82" stroke-dashoffset="439.82"/>' +
+                    '</svg>' +
+                    '<span class="ring-label">0 %</span>';
+                canvas.parentNode.replaceChild(ringDiv, canvas);
+
+                /* Mirror ProgressData changes into the SVG ring */
+                var circumference = 2 * Math.PI * 70;
+                var fillEl = ringDiv.querySelector('.ring-fill');
+                var labelEl = ringDiv.querySelector('.ring-label');
+                var iconWrapEl = center.querySelector('.update-icon-wrap');
+                var spinIcon = iconWrapEl ? iconWrapEl.querySelector('.update-spin-icon') : null;
+
+                function syncProgress() {
+                    var scope = null;
+                    try {
+                        var el = document.querySelector('[data-round-progress-model]') || document.getElementById('dzProgressRing');
+                        if (el && window.angular) {
+                            scope = window.angular.element(el).scope();
+                        }
+                    } catch (e) { /* ignore */ }
+
+                    var pct = 0;
+                    if (scope && scope.ProgressData) {
+                        pct = typeof scope.ProgressData === 'number' ? scope.ProgressData : (scope.ProgressData.current || 0);
+                    }
+                    if (pct < 0) pct = 0;
+                    if (pct > 100) pct = 100;
+
+                    var offset = circumference - (pct / 100) * circumference;
+                    fillEl.setAttribute('stroke-dashoffset', offset);
+                    labelEl.textContent = Math.round(pct) + ' %';
+
+                    if (pct >= 100) {
+                        fillEl.setAttribute('stroke', '#4caf7d');
+                        fillEl.style.filter = 'drop-shadow(0 0 6px rgba(76,175,125,0.4))';
+                        labelEl.textContent = '\u2713';
+                        labelEl.style.color = '#4caf7d';
+                        if (spinIcon) {
+                            spinIcon.className = 'fa-solid fa-circle-check';
+                            spinIcon.style.animation = 'none';
+                            spinIcon.style.color = '#4caf7d';
+                        }
+                        if (iconWrapEl) iconWrapEl.style.borderColor = 'rgba(76,175,125,0.3)';
+                    }
+                }
+
+                setInterval(syncProgress, 500);
+            }
+
+            /* ── 3. Style the warning span ──────────────────────── */
+            var warnSpan = divProg.querySelector('span[ng-bind-html="bottomText"]');
+            if (warnSpan && !warnSpan.classList.contains('update-warning')) {
+                warnSpan.classList.add('update-warning');
+                if (!warnSpan.querySelector('i')) {
+                    warnSpan.insertAdjacentHTML('afterbegin', '<i class="fa-solid fa-triangle-exclamation"></i> ');
+                }
+            }
+        }
+
+        /* ── 4. Wrap the console output section ─────────────────── */
+        var consoleEl = document.getElementById('updateconsole');
+        if (consoleEl && !consoleEl.closest('.update-output-section')) {
+            var showDiv = consoleEl.parentElement;
+            if (showDiv) {
+                showDiv.classList.add('update-output-section');
+                /* Replace the plain h4 with themed one */
+                var h4 = showDiv.querySelector('h4');
+                if (h4 && !h4.querySelector('i')) {
+                    h4.innerHTML = '<i class="fa-solid fa-terminal"></i> ' + h4.textContent;
+                }
+                /* Strip inline styles from pre so CSS takes over */
+                consoleEl.removeAttribute('style');
+            }
+        }
+    }
+
+    /* Run on load and watch for the update page appearing */
+    function init() {
+        enhanceUpdatePage();
+        var obs = new MutationObserver(function () {
+            if (!enhanced) enhanceUpdatePage();
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+    window.addEventListener('hashchange', function () {
+        enhanced = false;
+        setTimeout(enhanceUpdatePage, 300);
+    });
+})();
+
 
 /* ── Feature 7: Sparkline Micro-Charts ──────────────────────────── */
 (function () {
@@ -2112,4 +2269,1206 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         initIndicator();
     }
+})();
+
+
+/* ==================================================================
+ *  Nightglass Theme Settings Panel
+ *  Injects a themed config panel into the Domoticz Settings page.
+ *  Persists settings as Domoticz user variables so they sync across
+ *  all browsers / devices.
+ * ================================================================== */
+
+(function () {
+    'use strict';
+
+    var UVAR_PREFIX = 'ngTheme_';
+    var UVAR_TYPE = 2; // string type for user variables
+
+    // Base path for API calls
+    var BASE = (function () {
+        return window.location.pathname.replace(/\/[^/]*$/, '/');
+    })();
+
+    /* ── Default settings ──────────────────────────────────────── */
+    var DEFAULTS = {
+        navbarIcons:        true,
+        deviceIcons:        true,
+        animateDeviceIcons: true,
+        favStarIcons:       true,
+        trendArrowIcons:    true,
+        actionIcons:        true,
+        showThemeToggle:    true,
+        defaultMode:        'dark',
+        accentColor:        '#4e9af1',
+        dangerColor:        '#e05555',
+        warningColor:       '#f0a832',
+        successColor:       '#4caf7d',
+        accentColorLight:   '#2a7de1',
+        dangerColorLight:   '#d63b3b',
+        warningColorLight:  '#c07818',
+        successColorLight:  '#2e8c58',
+        bgColor:            '#23252f',
+        surfaceColor:       '#2a2b35',
+        borderColor:        '#33354a',
+        textColor:          '#e2e4ed',
+        bgColorLight:       '#ffffff',
+        surfaceColorLight:  '#f5f6fa',
+        borderColorLight:   '#d0d3dc',
+        textColorLight:     '#1a1c24',
+        pageBgColor:        '#1b1d25',
+        pageBgColorLight:   '#f0f2f5',
+        cardTilt:           true,
+        sparklines:         true,
+        stalenessIndicator: true,
+        stateFlash:         true,
+        tempAccent:         true,
+        cardAnimations:     true,
+        navAnimations:      true,
+        smoothScrolling:    true,
+        showLastUpdate:     false,
+        enableIcons:        true,
+        enableAppearance:   true,
+        enableEffects:      true,
+        enableColors:       true,
+        fontSize:           '100'
+    };
+
+    var _settings = null;
+    var _uvarCache = {}; // name → {idx, value}
+    var _panelInjected = false;
+    var _apiAvailable = true; // false if Domoticz API is unreachable
+    var LS_KEY = 'ngThemeSettings';
+
+    /* ── Domoticz User Variable API helpers ─────────────────────── */
+
+    function apiCall(params) {
+        var url = BASE + 'json.htm?' + Object.keys(params).map(function (k) {
+            return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+        }).join('&');
+        return fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.json(); });
+    }
+
+    function loadAllUvars() {
+        return apiCall({ type: 'command', param: 'getuservariables' }).then(function (data) {
+            _uvarCache = {};
+            if (data && data.result) {
+                data.result.forEach(function (uv) {
+                    if (uv.Name.indexOf(UVAR_PREFIX) === 0) {
+                        _uvarCache[uv.Name] = { idx: uv.idx, value: uv.Value };
+                    }
+                });
+            }
+        });
+    }
+
+    function getUvar(key) {
+        var name = UVAR_PREFIX + key;
+        return _uvarCache[name] ? _uvarCache[name].value : undefined;
+    }
+
+    function setUvar(key, value) {
+        var name = UVAR_PREFIX + key;
+        var strVal = String(value);
+        if (_uvarCache[name] && _uvarCache[name].idx) {
+            _uvarCache[name].value = strVal;
+            return apiCall({
+                type: 'command', param: 'updateuservariable',
+                idx: _uvarCache[name].idx, vname: name, vtype: UVAR_TYPE, vvalue: strVal
+            });
+        } else {
+            _uvarCache[name] = { idx: null, value: strVal };
+            return apiCall({
+                type: 'command', param: 'adduservariable',
+                vname: name, vtype: UVAR_TYPE, vvalue: strVal
+            }).then(function () {
+                // Reload to get the new idx
+                return loadAllUvars();
+            });
+        }
+    }
+
+    /* ── Settings object ───────────────────────────────────────── */
+
+    function loadFromLocalStorage() {
+        try {
+            var stored = localStorage.getItem(LS_KEY);
+            if (stored) return JSON.parse(stored);
+        } catch (e) {}
+        return null;
+    }
+
+    function saveToLocalStorage() {
+        try { localStorage.setItem(LS_KEY, JSON.stringify(_settings)); } catch (e) {}
+    }
+
+    function loadSettings() {
+        return loadAllUvars().then(function () {
+            _settings = {};
+            Object.keys(DEFAULTS).forEach(function (key) {
+                var raw = getUvar(key);
+                if (raw === undefined) {
+                    _settings[key] = DEFAULTS[key];
+                } else if (typeof DEFAULTS[key] === 'boolean') {
+                    _settings[key] = raw === 'true';
+                } else {
+                    _settings[key] = raw;
+                }
+            });
+            _apiAvailable = true;
+            saveToLocalStorage();
+            return _settings;
+        }).catch(function () {
+            _apiAvailable = false;
+            var stored = loadFromLocalStorage();
+            _settings = Object.assign({}, DEFAULTS, stored || {});
+            return _settings;
+        });
+    }
+
+    function saveSetting(key, value) {
+        _settings[key] = value;
+        if (_apiAvailable) setUvar(key, value);
+        saveToLocalStorage();
+        applySettings();
+    }
+
+    /* ── Apply settings to the page ────────────────────────────── */
+
+    function applySettings() {
+        if (!_settings) return;
+        var root = document.documentElement;
+
+        // --- Icon visibility (granular per-category) ---
+
+        // Navbar icons (menu items in the top bar)
+        var navIconStyle = document.getElementById('dz-ng-navicon-style');
+        if (!_settings.navbarIcons) {
+            if (!navIconStyle) {
+                navIconStyle = document.createElement('style');
+                navIconStyle.id = 'dz-ng-navicon-style';
+                navIconStyle.textContent =
+                    '.navbar .nav li a > i.dz-fa-icon { display: none !important; }' +
+                    '.navbar .nav .dropdown-menu li a > i.dz-fa-icon { display: none !important; }' +
+                    '.navbar img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
+                    '.navbar img[src^="images/"] { opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(navIconStyle);
+            }
+        } else if (navIconStyle) {
+            navIconStyle.remove();
+        }
+
+        // Device / card icons (48px device state icons)
+        var devIconStyle = document.getElementById('dz-ng-devicon-style');
+        if (!_settings.deviceIcons) {
+            if (!devIconStyle) {
+                devIconStyle = document.createElement('style');
+                devIconStyle.id = 'dz-ng-devicon-style';
+                devIconStyle.textContent =
+                    'i.dz-fa-device, i.dz-wind { display: none !important; }' +
+                    'body table[id^="itemtable"] img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
+                    'body table[id^="itemtable"] img[src*="48"] { opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(devIconStyle);
+            }
+        } else if (devIconStyle) {
+            devIconStyle.remove();
+        }
+
+        // Animate device icons (spinning fans, flickering flames, etc.)
+        var animStyle = document.getElementById('dz-ng-anim-icon-style');
+        if (!_settings.animateDeviceIcons || !_settings.deviceIcons) {
+            if (!animStyle) {
+                animStyle = document.createElement('style');
+                animStyle.id = 'dz-ng-anim-icon-style';
+                animStyle.textContent =
+                    'i.dz-fa-device[data-dz-state="on"] { animation: none !important; }';
+                document.head.appendChild(animStyle);
+            }
+        } else if (animStyle) {
+            animStyle.remove();
+        }
+
+        // Favorite star icons
+        var favIconStyle = document.getElementById('dz-ng-favicon-style');
+        if (!_settings.favStarIcons) {
+            if (!favIconStyle) {
+                favIconStyle = document.createElement('style');
+                favIconStyle.id = 'dz-ng-favicon-style';
+                favIconStyle.textContent =
+                    'i.dz-fa-fav { display: none !important; }' +
+                    'img[src*="favorite"].dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
+                    'img[src*="favorite"] { opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(favIconStyle);
+            }
+        } else if (favIconStyle) {
+            favIconStyle.remove();
+        }
+
+        // Trend arrow icons
+        var trendIconStyle = document.getElementById('dz-ng-trendicon-style');
+        if (!_settings.trendArrowIcons) {
+            if (!trendIconStyle) {
+                trendIconStyle = document.createElement('style');
+                trendIconStyle.id = 'dz-ng-trendicon-style';
+                trendIconStyle.textContent =
+                    'i.dz-fa-trend { display: none !important; }' +
+                    'img[src*="arrow_"].dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
+                    'img[src*="arrow_"] { opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(trendIconStyle);
+            }
+        } else if (trendIconStyle) {
+            trendIconStyle.remove();
+        }
+
+        // Action icons (delete, rename, add, etc. in tables)
+        var actionIconStyle = document.getElementById('dz-ng-actionicon-style');
+        if (!_settings.actionIcons) {
+            if (!actionIconStyle) {
+                actionIconStyle = document.createElement('style');
+                actionIconStyle.id = 'dz-ng-actionicon-style';
+                actionIconStyle.textContent =
+                    'i.dz-fa-action, i.dz-fa-nav { display: none !important; }' +
+                    'img.dz-icon-replaced[data-dz-src*="delete"], img.dz-icon-replaced[data-dz-src*="rename"],' +
+                    'img.dz-icon-replaced[data-dz-src*="add."], img.dz-icon-replaced[data-dz-src*="remove."],' +
+                    'img.dz-icon-replaced[data-dz-src*="up."], img.dz-icon-replaced[data-dz-src*="down."],' +
+                    'img.dz-icon-replaced[data-dz-src*="next."]' +
+                    '{ display: inline !important; opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(actionIconStyle);
+            }
+        } else if (actionIconStyle) {
+            actionIconStyle.remove();
+        }
+
+        // Theme toggle visibility
+        var toggleNav = document.getElementById('dz-theme-style-nav');
+        if (toggleNav) {
+            toggleNav.style.display = _settings.showThemeToggle ? '' : 'none';
+        }
+        // If toggle hidden, apply the default mode
+        if (!_settings.showThemeToggle) {
+            var isLight = document.body.classList.contains('dz-light');
+            var wantLight = _settings.defaultMode === 'light';
+            if (isLight !== wantLight) {
+                if (wantLight) document.body.classList.add('dz-light');
+                else document.body.classList.remove('dz-light');
+                localStorage.setItem('dz-theme-style', wantLight ? 'light' : 'dark');
+                if (typeof applyHighchartsTheme === 'function') applyHighchartsTheme(!wantLight);
+            }
+        }
+
+        // Accent colors — apply via a dynamic <style> so both :root and body.dz-light are covered
+        var hexToRgb = function (hex) {
+            var r = parseInt(hex.slice(1, 3), 16);
+            var g = parseInt(hex.slice(3, 5), 16);
+            var b = parseInt(hex.slice(5, 7), 16);
+            return r + ', ' + g + ', ' + b;
+        };
+        var darkenHex = function (hex, amt) {
+            var r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amt);
+            var g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amt);
+            var b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amt);
+            var toH = function (n) { var h = n.toString(16); return h.length < 2 ? '0' + h : h; };
+            return '#' + toH(r) + toH(g) + toH(b);
+        };
+        var lightenHex = function (hex, amt) {
+            var r = Math.min(255, parseInt(hex.slice(1, 3), 16) + amt);
+            var g = Math.min(255, parseInt(hex.slice(3, 5), 16) + amt);
+            var b = Math.min(255, parseInt(hex.slice(5, 7), 16) + amt);
+            var toH = function (n) { var h = n.toString(16); return h.length < 2 ? '0' + h : h; };
+            return '#' + toH(r) + toH(g) + toH(b);
+        };
+
+        var ac = _settings.accentColor;
+        var dc = _settings.dangerColor;
+        var wc = _settings.warningColor;
+        var sc = _settings.successColor;
+        var acL = _settings.accentColorLight  || darkenHex(ac, 15);
+        var dcL = _settings.dangerColorLight  || darkenHex(dc, 15);
+        var wcL = _settings.warningColorLight || darkenHex(wc, 25);
+        var scL = _settings.successColorLight || darkenHex(sc, 20);
+        var bg  = _settings.bgColor      || '#23252f';
+        var sf  = _settings.surfaceColor  || '#2a2b35';
+        var bd  = _settings.borderColor   || '#33354a';
+        var tx  = _settings.textColor     || '#e2e4ed';
+        var bgL = _settings.bgColorLight     || '#ffffff';
+        var sfL = _settings.surfaceColorLight || '#f5f6fa';
+        var bdL = _settings.borderColorLight  || '#d0d3dc';
+        var txL = _settings.textColorLight    || '#1a1c24';
+        var pbg  = _settings.pageBgColor       || '#1b1d25';
+        var pbgL = _settings.pageBgColorLight  || '#f0f2f5';
+
+        var colorCSS =
+            ':root {\n' +
+            '  --dz-accent: ' + ac + ';\n' +
+            '  --dz-accent-color: ' + ac + ';\n' +
+            '  --dz-widget-accent: ' + ac + ';\n' +
+            '  --dz-btn-primary-bg: ' + ac + ';\n' +
+            '  --dz-btn-info-bg: ' + ac + ';\n' +
+            '  --dz-accent-rgb: ' + hexToRgb(ac) + ';\n' +
+            '  --dz-accent-light: ' + lightenHex(ac, 30) + ';\n' +
+            '  --dz-accent-hover: ' + darkenHex(ac, 20) + ';\n' +
+            '  --dz-danger: ' + dc + ';\n' +
+            '  --dz-accent-red: ' + dc + ';\n' +
+            '  --dz-danger-hover: ' + darkenHex(dc, 20) + ';\n' +
+            '  --dz-warning: ' + wc + ';\n' +
+            '  --dz-warning-hover: ' + darkenHex(wc, 20) + ';\n' +
+            '  --dz-success: ' + sc + ';\n' +
+            '  --dz-success-hover: ' + darkenHex(sc, 20) + ';\n' +
+            '  --dz-surface: ' + bg + ';\n' +
+            '  --dz-surface-2: ' + sf + ';\n' +
+            '  --dz-surface-3: ' + lightenHex(sf, 10) + ';\n' +
+            '  --dz-border: ' + bd + ';\n' +
+            '  --dz-border-b: ' + lightenHex(bd, 10) + ';\n' +
+            '  --dz-text: ' + tx + ';\n' +
+            '  --dz-text-soft: ' + darkenHex(tx, 30) + ';\n' +
+            '  --dz-text-muted: ' + darkenHex(tx, 60) + ';\n' +
+            '  --dz-bg: ' + pbg + ';\n' +
+            '  --dz-bg-alt: ' + lightenHex(pbg, 5) + ';\n' +
+            '}\n' +
+            'body.dz-light {\n' +
+            '  --dz-accent: ' + acL + ';\n' +
+            '  --dz-accent-color: ' + acL + ';\n' +
+            '  --dz-widget-accent: ' + acL + ';\n' +
+            '  --dz-btn-primary-bg: ' + acL + ';\n' +
+            '  --dz-btn-info-bg: ' + acL + ';\n' +
+            '  --dz-accent-rgb: ' + hexToRgb(acL) + ';\n' +
+            '  --dz-accent-light: ' + lightenHex(acL, 30) + ';\n' +
+            '  --dz-accent-hover: ' + darkenHex(acL, 20) + ';\n' +
+            '  --dz-danger: ' + dcL + ';\n' +
+            '  --dz-accent-red: ' + dcL + ';\n' +
+            '  --dz-danger-hover: ' + darkenHex(dcL, 20) + ';\n' +
+            '  --dz-warning: ' + wcL + ';\n' +
+            '  --dz-warning-hover: ' + darkenHex(wcL, 20) + ';\n' +
+            '  --dz-success: ' + scL + ';\n' +
+            '  --dz-success-hover: ' + darkenHex(scL, 20) + ';\n' +
+            '  --dz-surface: ' + bgL + ';\n' +
+            '  --dz-surface-2: ' + sfL + ';\n' +
+            '  --dz-surface-3: ' + darkenHex(sfL, 10) + ';\n' +
+            '  --dz-border: ' + bdL + ';\n' +
+            '  --dz-border-b: ' + darkenHex(bdL, 10) + ';\n' +
+            '  --dz-text: ' + txL + ';\n' +
+            '  --dz-text-soft: ' + lightenHex(txL, 30) + ';\n' +
+            '  --dz-text-muted: ' + lightenHex(txL, 60) + ';\n' +
+            '  --dz-bg: ' + pbgL + ';\n' +
+            '  --dz-bg-alt: ' + darkenHex(pbgL, 10) + ';\n' +
+            '}\n';
+
+        var colorStyle = document.getElementById('dz-ng-color-style');
+        if (!colorStyle) {
+            colorStyle = document.createElement('style');
+            colorStyle.id = 'dz-ng-color-style';
+            document.head.appendChild(colorStyle);
+        }
+        colorStyle.textContent = colorCSS;
+
+        // Card tilt
+        var tiltStyle = document.getElementById('dz-ng-tilt-style');
+        if (!_settings.cardTilt) {
+            if (!tiltStyle) {
+                tiltStyle = document.createElement('style');
+                tiltStyle.id = 'dz-ng-tilt-style';
+                tiltStyle.textContent = '.dz-tilt-enabled { transform: none !important; }';
+                document.head.appendChild(tiltStyle);
+            }
+        } else if (tiltStyle) {
+            tiltStyle.remove();
+        }
+
+        // Sparklines
+        var sparkStyle = document.getElementById('dz-ng-spark-style');
+        if (!_settings.sparklines) {
+            if (!sparkStyle) {
+                sparkStyle = document.createElement('style');
+                sparkStyle.id = 'dz-ng-spark-style';
+                sparkStyle.textContent = '.dz-sparkline-wrap { display: none !important; }';
+                document.head.appendChild(sparkStyle);
+            }
+        } else if (sparkStyle) {
+            sparkStyle.remove();
+        }
+
+        // Staleness indicator
+        var staleStyle = document.getElementById('dz-ng-stale-style');
+        if (!_settings.stalenessIndicator) {
+            if (!staleStyle) {
+                staleStyle = document.createElement('style');
+                staleStyle.id = 'dz-ng-stale-style';
+                staleStyle.textContent = '.dz-stale::before { display: none !important; }';
+                document.head.appendChild(staleStyle);
+            }
+        } else if (staleStyle) {
+            staleStyle.remove();
+        }
+
+        // State flash
+        var flashStyle = document.getElementById('dz-ng-flash-style');
+        if (!_settings.stateFlash) {
+            if (!flashStyle) {
+                flashStyle = document.createElement('style');
+                flashStyle.id = 'dz-ng-flash-style';
+                flashStyle.textContent = '.dz-flash-on, .dz-flash-off { animation: none !important; }';
+                document.head.appendChild(flashStyle);
+            }
+        } else if (flashStyle) {
+            flashStyle.remove();
+        }
+
+        // Temperature accent
+        var tempStyle = document.getElementById('dz-ng-temp-style');
+        if (!_settings.tempAccent) {
+            if (!tempStyle) {
+                tempStyle = document.createElement('style');
+                tempStyle.id = 'dz-ng-temp-style';
+                tempStyle.textContent = '.dz-temp-accent { border-top: none !important; }';
+                document.head.appendChild(tempStyle);
+            }
+        } else if (tempStyle) {
+            tempStyle.remove();
+        }
+
+        // Card animations
+        var cardAnimStyle = document.getElementById('dz-ng-cardanim-style');
+        if (!_settings.cardAnimations) {
+            if (!cardAnimStyle) {
+                cardAnimStyle = document.createElement('style');
+                cardAnimStyle.id = 'dz-ng-cardanim-style';
+                cardAnimStyle.textContent =
+                    'body table[id^="itemtable"] tbody tr { animation: none !important; }' +
+                    'div.item.itemBlock, .itemBlock > div.item { transition: none !important; }';
+                document.head.appendChild(cardAnimStyle);
+            }
+        } else if (cardAnimStyle) {
+            cardAnimStyle.remove();
+        }
+
+        // Nav animations
+        var navAnimStyle = document.getElementById('dz-ng-navanim-style');
+        if (!_settings.navAnimations) {
+            if (!navAnimStyle) {
+                navAnimStyle = document.createElement('style');
+                navAnimStyle.id = 'dz-ng-navanim-style';
+                navAnimStyle.textContent =
+                    '.navbar .nav > li { animation-duration: 0s !important; animation-delay: 0s !important; }' +
+                    '.navbar .nav .dropdown-menu > li { animation-duration: 0s !important; animation-delay: 0s !important; }' +
+                    '.navbar .nav .dropdown-menu { animation-duration: 0s !important; animation-delay: 0s !important; }' +
+                    '.dz-nav-indicator { display: none !important; }';
+                document.head.appendChild(navAnimStyle);
+            }
+        } else if (navAnimStyle) {
+            navAnimStyle.remove();
+        }
+
+        // Smooth scrolling
+        root.style.scrollBehavior = _settings.smoothScrolling ? 'smooth' : 'auto';
+
+        // Show last update
+        var luStyle = document.getElementById('dz-ng-lu-style');
+        if (!_settings.showLastUpdate) {
+            if (!luStyle) {
+                luStyle = document.createElement('style');
+                luStyle.id = 'dz-ng-lu-style';
+                luStyle.textContent = '.dz-card-footer { display: none !important; }';
+                document.head.appendChild(luStyle);
+            }
+        } else if (luStyle) {
+            luStyle.remove();
+        }
+
+        // Font size
+        var pct = parseInt(_settings.fontSize, 10) || 100;
+        root.style.fontSize = pct === 100 ? '' : (pct + '%');
+
+        // Section-level master toggles
+        // When Icons section is disabled, revert all icon replacements
+        var iconsDisabledStyle = document.getElementById('dz-ng-icons-disabled');
+        if (!_settings.enableIcons) {
+            if (!iconsDisabledStyle) {
+                iconsDisabledStyle = document.createElement('style');
+                iconsDisabledStyle.id = 'dz-ng-icons-disabled';
+                iconsDisabledStyle.textContent =
+                    'i.dz-fa-device, i.dz-fa-icon, i.dz-fa-fav, i.dz-fa-trend, i.dz-fa-action, i.dz-fa-nav, i.dz-wind { display: none !important; }' +
+                    'img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(iconsDisabledStyle);
+            }
+        } else if (iconsDisabledStyle) { iconsDisabledStyle.remove(); }
+
+        // When Effects section is disabled, kill all effects
+        var effectsDisabledStyle = document.getElementById('dz-ng-effects-disabled');
+        if (!_settings.enableEffects) {
+            if (!effectsDisabledStyle) {
+                effectsDisabledStyle = document.createElement('style');
+                effectsDisabledStyle.id = 'dz-ng-effects-disabled';
+                effectsDisabledStyle.textContent =
+                    '.dz-tilt-enabled { transform: none !important; }' +
+                    '.dz-sparkline-wrap { display: none !important; }' +
+                    '.dz-stale::before { display: none !important; }' +
+                    '.dz-flash-on, .dz-flash-off { animation: none !important; }' +
+                    '.dz-temp-accent { border-top: none !important; }' +
+                    'div.item.itemBlock, .itemBlock > div.item { transition: none !important; }' +
+                    'body table[id^="itemtable"] tbody tr { animation: none !important; }' +
+                    '.navbar .nav > li, .navbar .nav .dropdown-menu > li, .navbar .nav .dropdown-menu { animation-duration: 0s !important; animation-delay: 0s !important; }' +
+                    '.dz-nav-indicator { display: none !important; }';
+                document.head.appendChild(effectsDisabledStyle);
+            }
+        } else if (effectsDisabledStyle) { effectsDisabledStyle.remove(); }
+
+        // When Colors section is disabled, remove the custom color overrides
+        if (!_settings.enableColors) {
+            var cs = document.getElementById('dz-ng-color-style');
+            if (cs) cs.textContent = '';
+        }
+    }
+
+    /* ── Build the settings panel HTML ─────────────────────────── */
+
+    function buildPanel() {
+        var s = _settings || DEFAULTS;
+
+        function toggle(key, label, desc) {
+            var checked = s[key] ? ' checked' : '';
+            return '<div class="ng-setting-row">' +
+                '<div class="ng-setting-info"><span class="ng-setting-label">' + label + '</span>' +
+                (desc ? '<span class="ng-setting-desc">' + desc + '</span>' : '') + '</div>' +
+                '<label class="ng-toggle"><input type="checkbox" data-ng-key="' + key + '"' + checked + '>' +
+                '<span class="ng-toggle-slider"></span></label></div>';
+        }
+
+        var COLOR_PRESETS = [
+            '#4e9af1','#2a7de1','#29b6f6','#4dd0e1','#4caf7d','#66bb6a',
+            '#f0a832','#ffa726','#ff7043','#e05555','#c8a0ff','#ab47bc',
+            '#78909c','#b0b3c6','#555770','#ffffff'
+        ];
+
+        function colorPicker(key, label) {
+            var val = s[key] || '#4e9af1';
+            var presetHtml = COLOR_PRESETS.map(function (c) {
+                var sel = (c.toLowerCase() === val.toLowerCase()) ? ' ng-cp-preset--active' : '';
+                return '<button class="ng-cp-preset' + sel + '" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+            }).join('');
+            return '<div class="ng-color-wrap" data-ng-color-key="' + key + '">' +
+                '<button class="ng-cp-swatch" style="background:' + val + ';"></button>' +
+                '<input type="text" class="ng-cp-hex" value="' + val + '" maxlength="7" spellcheck="false">' +
+                '<div class="ng-cp-popover">' +
+                '<canvas class="ng-cp-sv" width="232" height="148"></canvas>' +
+                '<canvas class="ng-cp-hue" width="232" height="14"></canvas>' +
+                '<div class="ng-cp-presets">' + presetHtml + '</div>' +
+                '</div></div>';
+        }
+
+        function dualColorPicker(darkKey, lightKey, label) {
+            return '<div class="ng-setting-row ng-setting-row--dual">' +
+                '<div class="ng-setting-info"><span class="ng-setting-label">' + label + '</span></div>' +
+                '<div class="ng-dual-colors">' +
+                '<div class="ng-dual-col">' +
+                colorPicker(darkKey, '') + '</div>' +
+                '<div class="ng-dual-col">' +
+                colorPicker(lightKey, '') + '</div>' +
+                '</div></div>';
+        }
+
+        function select(key, label, options, desc) {
+            var opts = options.map(function (o) {
+                var sel = s[key] === o.value ? ' selected' : '';
+                return '<option value="' + o.value + '"' + sel + '>' + o.label + '</option>';
+            }).join('');
+            return '<div class="ng-setting-row">' +
+                '<div class="ng-setting-info"><span class="ng-setting-label">' + label + '</span>' +
+                (desc ? '<span class="ng-setting-desc">' + desc + '</span>' : '') + '</div>' +
+                '<select data-ng-key="' + key + '" class="ng-select">' + opts + '</select></div>';
+        }
+
+        function slider(key, label, min, max, step, unit, desc) {
+            var val = s[key] || DEFAULTS[key];
+            return '<div class="ng-setting-row">' +
+                '<div class="ng-setting-info"><span class="ng-setting-label">' + label + '</span>' +
+                (desc ? '<span class="ng-setting-desc">' + desc + '</span>' : '') + '</div>' +
+                '<div class="ng-slider-wrap"><input type="range" data-ng-key="' + key + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '">' +
+                '<span class="ng-slider-value">' + val + (unit || '') + '</span></div></div>';
+        }
+
+        function sectionToggle(key) {
+            var checked = s[key] ? ' checked' : '';
+            return '<label class="ng-section-toggle" title="Enable / disable this section">' +
+                '<input type="checkbox" data-ng-section-key="' + key + '"' + checked + '>' +
+                '<span class="ng-section-toggle-slider"></span></label>';
+        }
+        return '<div id="ng-theme-settings" class="ng-settings-panel">' +
+
+            '<div class="ng-settings-header">' +
+            '<div class="ng-settings-header-left">' +
+            '<i class="fa-solid fa-palette ng-header-icon"></i>' +
+            '<div><h3 class="ng-settings-title">Nightglass Theme</h3>' +
+            '<span class="ng-settings-subtitle">Customize your dashboard experience</span></div></div>' +
+            '<button class="ng-reset-btn" id="ngResetBtn" title="Reset all settings to defaults">' +
+            '<i class="fa-solid fa-rotate-left"></i> Reset</button></div>' +
+
+            '<div class="ng-settings-grid">' +
+
+            /* Row 1: Navbar Icons (left) + Colors (right) */
+            '<div class="ng-settings-section">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-bars"></i> Navbar Icons' + sectionToggle('enableIcons') + '</div>' +
+            toggle('navbarIcons', 'Navbar Menu Icons', 'Replace PNG menu icons with Font Awesome in the navigation bar') +
+            '</div>' +
+
+            '<div class="ng-settings-section ng-settings-section--colors">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-droplet"></i> Colors' + sectionToggle('enableColors') + '</div>' +
+            '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
+            dualColorPicker('accentColor', 'accentColorLight', 'Accent Color') +
+            dualColorPicker('dangerColor', 'dangerColorLight', 'Danger Color') +
+            dualColorPicker('warningColor', 'warningColorLight', 'Warning Color') +
+            dualColorPicker('successColor', 'successColorLight', 'Success Color') +
+            '</div>' +
+
+            /* Row 2: Device Icons (left) + Background & Surface (right) */
+            '<div class="ng-settings-section">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-cube"></i> Device &amp; Card Icons' + sectionToggle('enableIcons') + '</div>' +
+            toggle('deviceIcons', 'Device Icons', 'Replace 48px PNG device icons with Font Awesome on cards') +
+            toggle('animateDeviceIcons', 'Animate Device Icons', 'Spin fans, flicker flames, pulse presence sensors when active') +
+            toggle('favStarIcons', 'Favorite Star Icons', 'Replace PNG stars with Font Awesome star icons') +
+            toggle('trendArrowIcons', 'Trend Arrow Icons', 'Replace PNG trend arrows with Font Awesome arrows') +
+            toggle('actionIcons', 'Action Icons', 'Replace PNG action icons (delete, rename, add) in data tables') +
+            '</div>' +
+
+            '<div class="ng-settings-section ng-settings-section--colors">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-fill-drip"></i> Background &amp; Surface' + sectionToggle('enableColors') + '</div>' +
+            '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
+            dualColorPicker('pageBgColor', 'pageBgColorLight', 'Page Background') +
+            dualColorPicker('bgColor', 'bgColorLight', 'Navbar &amp; Cards') +
+            dualColorPicker('surfaceColor', 'surfaceColorLight', 'Card Surface') +
+            dualColorPicker('borderColor', 'borderColorLight', 'Borders') +
+            dualColorPicker('textColor', 'textColorLight', 'Text') +
+            '</div>' +
+
+            /* Row 3+: Appearance (left) */
+            '<div class="ng-settings-section">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-swatchbook"></i> Appearance' + sectionToggle('enableAppearance') + '</div>' +
+            toggle('showThemeToggle', 'Show Dark/Light Toggle', 'Display the sun/moon toggle button in the navbar') +
+            select('defaultMode', 'Default Mode', [
+                { value: 'dark', label: '🌙 Dark' },
+                { value: 'light', label: '☀️ Light' }
+            ], 'Used when the toggle is hidden') +
+            slider('fontSize', 'Base Font Size', 80, 130, 5, '%', 'Scale the entire interface') +
+            toggle('showLastUpdate', 'Show Last Update', 'Show the formatted timestamp footer on device cards') +
+            '</div>' +
+
+            /* Row 4: Effects (left) */
+            '<div class="ng-settings-section">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-wand-magic-sparkles"></i> Effects &amp; Animations' + sectionToggle('enableEffects') + '</div>' +
+            toggle('cardTilt', '3D Card Tilt', 'Subtle perspective tilt on hover') +
+            toggle('sparklines', 'Sparkline Charts', 'Mini 24h trend charts as card watermarks') +
+            toggle('stalenessIndicator', 'Staleness Dot', 'Pulsing red dot on devices that haven\'t updated in 24h') +
+            toggle('stateFlash', 'State-Change Flash', 'Blue/red ring flash when a device changes state') +
+            toggle('tempAccent', 'Temperature Accent', 'Color-coded top border based on temperature value') +
+            toggle('cardAnimations', 'Card Animations', 'Entrance animations and hover transitions on cards') +
+            toggle('navAnimations', 'Navbar Animations', 'Staggered entrances, sliding indicator, dropdown effects') +
+            toggle('smoothScrolling', 'Smooth Scrolling', 'Enable smooth scroll behavior page-wide') +
+            '</div>' +
+
+            '</div>' + /* grid end */
+
+            '<div class="ng-settings-footer">' +
+            '<div class="ng-footer-actions">' +
+            '<button class="ng-export-btn" id="ngExportBtn" title="Export settings as JSON file">' +
+            '<i class="fa-solid fa-file-export"></i> Export</button>' +
+            '<button class="ng-import-btn" id="ngImportBtn" title="Import settings from JSON file">' +
+            '<i class="fa-solid fa-file-import"></i> Import</button>' +
+            '<input type="file" id="ngImportFile" accept=".json" style="display:none">' +
+            '</div>' +
+            '<span class="ng-footer-note"><i class="fa-solid fa-cloud-arrow-up"></i> ' +
+            (_apiAvailable
+                ? 'Settings are stored as Domoticz user variables and sync across all your browsers.'
+                : 'API unavailable — settings are stored in this browser\'s local storage.') +
+            '</span></div>' +
+
+            '</div>';
+    }
+
+    /* ── Inject panel into settings page ───────────────────────── */
+
+    function injectPanel() {
+        if (_panelInjected) return;
+        var settingsContent = document.getElementById('settingscontent');
+        if (!settingsContent) return;
+        if (document.getElementById('ng-theme-settings')) return;
+
+        var subTabs = settingsContent.querySelector('.sub-tabs');
+        if (!subTabs) return;
+
+        _panelInjected = true;
+
+        // Pre-create the wrap (hidden) so it's ready when tab is clicked
+        var wrap = document.createElement('div');
+        wrap.id = 'ng-theme-settings-wrap';
+        wrap.style.display = 'none';
+        wrap.innerHTML = buildPanel();
+        settingsContent.appendChild(wrap);
+        bindEvents(wrap);
+
+        var li = document.createElement('li');
+        li.id = 'ng-settings-tab';
+        var a = document.createElement('a');
+        a.href = 'javascript:void(0)';
+        a.innerHTML = '<i class="fa-solid fa-palette" style="margin-right:4px;"></i> Nightglass';
+        a.addEventListener('click', function () {
+            showNightglassTab(settingsContent, subTabs);
+        });
+        li.appendChild(a);
+        subTabs.appendChild(li);
+    }
+
+    function showNightglassTab(settingsContent, subTabs) {
+        var tabs = subTabs.querySelectorAll('li');
+        tabs.forEach(function (t) { t.classList.remove('active'); });
+        document.getElementById('ng-settings-tab').classList.add('active');
+        settingsContent.classList.add('ng-showing');
+        var wrap = document.getElementById('ng-theme-settings-wrap');
+        if (wrap) wrap.style.display = '';
+        settingsContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (!document.getElementById('dz-ng-settings-hide')) {
+            var style = document.createElement('style');
+            style.id = 'dz-ng-settings-hide';
+            style.textContent =
+                '#settingscontent.ng-showing #my-tab-content { display: none !important; }' +
+                '#settingscontent.ng-showing .sub-tabs-apply { display: none !important; }' +
+                '#settingscontent.ng-showing #ng-theme-settings-wrap { display: block !important; }';
+            document.head.appendChild(style);
+        }
+    }
+    /* Restore other panes when clicking a non-Nightglass tab */
+    function hookOtherTabs() {
+        var settingsContent = document.getElementById('settingscontent');
+        if (!settingsContent) return;
+        var subTabs = settingsContent.querySelector('.sub-tabs');
+        if (!subTabs) return;
+
+        subTabs.addEventListener('click', function (e) {
+            var li = e.target.closest('li');
+            if (!li || li.id === 'ng-settings-tab') return;
+            // Remove the CSS-based hiding class
+            settingsContent.classList.remove('ng-showing');
+            var wrap = document.getElementById('ng-theme-settings-wrap');
+            if (wrap) wrap.style.display = 'none';
+            var ngTab = document.getElementById('ng-settings-tab');
+            if (ngTab) ngTab.classList.remove('active');
+        });
+    }
+
+    /* ── Bind interactive events ───────────────────────────────── */
+
+    function applySectionStates(container) {
+        container.querySelectorAll('input[data-ng-section-key]').forEach(function (cb) {
+            var section = cb.closest('.ng-settings-section');
+            if (!section) return;
+            if (cb.checked) {
+                section.classList.remove('ng-section-disabled');
+            } else {
+                section.classList.add('ng-section-disabled');
+            }
+        });
+    }
+
+    function bindEvents(container) {
+        // Toggles
+        container.querySelectorAll('input[type="checkbox"][data-ng-key]').forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                saveSetting(this.getAttribute('data-ng-key'), this.checked);
+                // Sub-setting visibility
+                updateSubSettings(container);
+            });
+        });
+
+        // Section toggles (enable/disable entire section)
+        container.querySelectorAll('input[data-ng-section-key]').forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                var key = this.getAttribute('data-ng-section-key');
+                saveSetting(key, this.checked);
+                applySectionStates(container);
+            });
+        });
+        applySectionStates(container);
+
+        // Color pickers (custom HSV canvas)
+        initColorPickers(container);
+
+        // Selects
+        container.querySelectorAll('select[data-ng-key]').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+                saveSetting(this.getAttribute('data-ng-key'), this.value);
+            });
+        });
+
+        // Sliders
+        container.querySelectorAll('input[type="range"][data-ng-key]').forEach(function (sl) {
+            sl.addEventListener('input', function () {
+                var val = this.value;
+                this.closest('.ng-slider-wrap').querySelector('.ng-slider-value').textContent = val + '%';
+                saveSetting(this.getAttribute('data-ng-key'), val);
+            });
+        });
+
+        // Reset button
+        var resetBtn = container.querySelector('#ngResetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                if (!confirm('Reset all Nightglass theme settings to defaults?')) return;
+                Object.keys(DEFAULTS).forEach(function (key) {
+                    saveSetting(key, DEFAULTS[key]);
+                });
+                // Re-render
+                var wrap = document.getElementById('ng-theme-settings-wrap');
+                if (wrap) {
+                    wrap.innerHTML = buildPanel();
+                    bindEvents(wrap);
+                }
+            });
+        }
+
+        // Export button
+        var exportBtn = container.querySelector('#ngExportBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function () {
+                var data = JSON.stringify(_settings, null, 2);
+                var blob = new Blob([data], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'nightglass-settings.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // Import button
+        var importBtn = container.querySelector('#ngImportBtn');
+        var importFile = container.querySelector('#ngImportFile');
+        if (importBtn && importFile) {
+            importBtn.addEventListener('click', function () {
+                importFile.click();
+            });
+            importFile.addEventListener('change', function () {
+                var file = this.files && this.files[0];
+                if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        var imported = JSON.parse(e.target.result);
+                        var count = 0;
+                        Object.keys(DEFAULTS).forEach(function (key) {
+                            if (imported[key] !== undefined) {
+                                saveSetting(key, imported[key]);
+                                count++;
+                            }
+                        });
+                        // Re-render panel with new values
+                        var wrap = document.getElementById('ng-theme-settings-wrap');
+                        if (wrap) {
+                            wrap.innerHTML = buildPanel();
+                            bindEvents(wrap);
+                        }
+                        alert('Imported ' + count + ' settings successfully.');
+                    } catch (err) {
+                        alert('Failed to import settings: invalid JSON file.');
+                    }
+                };
+                reader.readAsText(file);
+                this.value = ''; // allow re-importing the same file
+            });
+        }
+
+        updateSubSettings(container);
+    }
+
+    /* ── Custom HSV Color Picker logic ─────────────────────────── */
+
+    function hexToHsv(hex) {
+        var r = parseInt(hex.slice(1,3),16)/255;
+        var g = parseInt(hex.slice(3,5),16)/255;
+        var b = parseInt(hex.slice(5,7),16)/255;
+        var mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx - mn;
+        var h = 0, s = mx === 0 ? 0 : d / mx, v = mx;
+        if (d !== 0) {
+            if (mx === r)      h = ((g - b) / d + 6) % 6;
+            else if (mx === g) h = (b - r) / d + 2;
+            else               h = (r - g) / d + 4;
+            h /= 6;
+        }
+        return { h: h, s: s, v: v };
+    }
+
+    function hsvToHex(h, s, v) {
+        var i = Math.floor(h * 6), f = h * 6 - i;
+        var p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+        var r, g, b;
+        switch (i % 6) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+        }
+        var toHex = function (n) { var h = Math.round(n * 255).toString(16); return h.length < 2 ? '0' + h : h; };
+        return '#' + toHex(r) + toHex(g) + toHex(b);
+    }
+
+    function drawSV(canvas, hue) {
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        // Fill with hue
+        ctx.fillStyle = hsvToHex(hue, 1, 1);
+        ctx.fillRect(0, 0, w, h);
+        // White gradient left to right
+        var gW = ctx.createLinearGradient(0, 0, w, 0);
+        gW.addColorStop(0, 'rgba(255,255,255,1)');
+        gW.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gW;
+        ctx.fillRect(0, 0, w, h);
+        // Black gradient top to bottom
+        var gB = ctx.createLinearGradient(0, 0, 0, h);
+        gB.addColorStop(0, 'rgba(0,0,0,0)');
+        gB.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = gB;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    function drawHueBar(canvas) {
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        var grad = ctx.createLinearGradient(0, 0, w, 0);
+        for (var i = 0; i <= 6; i++) {
+            grad.addColorStop(i / 6, hsvToHex(i / 6, 1, 1));
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    function initColorPickers(container) {
+        container.querySelectorAll('.ng-color-wrap[data-ng-color-key]').forEach(function (wrap) {
+            var key = wrap.getAttribute('data-ng-color-key');
+            var swatch = wrap.querySelector('.ng-cp-swatch');
+            var hexInput = wrap.querySelector('.ng-cp-hex');
+            var popover = wrap.querySelector('.ng-cp-popover');
+            var svCanvas = wrap.querySelector('.ng-cp-sv');
+            var hueCanvas = wrap.querySelector('.ng-cp-hue');
+            var presetBtns = wrap.querySelectorAll('.ng-cp-preset');
+
+            var hsv = hexToHsv(hexInput.value || '#4e9af1');
+
+            function updateFromHsv(commit) {
+                var hex = hsvToHex(hsv.h, hsv.s, hsv.v);
+                swatch.style.background = hex;
+                hexInput.value = hex;
+                drawSV(svCanvas, hsv.h);
+                // Highlight active preset
+                presetBtns.forEach(function (b) {
+                    b.classList.toggle('ng-cp-preset--active',
+                        b.getAttribute('data-color').toLowerCase() === hex.toLowerCase());
+                });
+                if (commit) saveSetting(key, hex);
+            }
+
+            // Init canvases
+            drawSV(svCanvas, hsv.h);
+            drawHueBar(hueCanvas);
+
+            // Toggle popover (fixed positioning to escape overflow)
+            swatch.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = popover.style.display === 'block';
+                closeAllPopovers(container);
+                if (!open) {
+                    popover.style.display = 'block';
+                    // Position fixed relative to the swatch button
+                    var rect = swatch.getBoundingClientRect();
+                    var popW = 260; // matches CSS width
+                    var left = rect.right - popW;
+                    var top = rect.bottom + 8;
+                    // Keep within viewport
+                    if (left < 8) left = 8;
+                    if (top + 300 > window.innerHeight) top = rect.top - 308;
+                    popover.style.left = left + 'px';
+                    popover.style.top = top + 'px';
+                    drawSV(svCanvas, hsv.h);
+                    drawHueBar(hueCanvas);
+                }
+            });
+
+            // SV canvas interaction
+            function handleSV(e) {
+                var rect = svCanvas.getBoundingClientRect();
+                var x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                var y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+                hsv.s = x;
+                hsv.v = 1 - y;
+                updateFromHsv(true);
+            }
+            var svDragging = false;
+            svCanvas.addEventListener('pointerdown', function (e) {
+                svDragging = true;
+                svCanvas.setPointerCapture(e.pointerId);
+                handleSV(e);
+            });
+            svCanvas.addEventListener('pointermove', function (e) {
+                if (svDragging) handleSV(e);
+            });
+            svCanvas.addEventListener('pointerup', function () { svDragging = false; });
+
+            // Hue bar interaction
+            function handleHue(e) {
+                var rect = hueCanvas.getBoundingClientRect();
+                hsv.h = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width));
+                updateFromHsv(true);
+            }
+            var hueDragging = false;
+            hueCanvas.addEventListener('pointerdown', function (e) {
+                hueDragging = true;
+                hueCanvas.setPointerCapture(e.pointerId);
+                handleHue(e);
+            });
+            hueCanvas.addEventListener('pointermove', function (e) {
+                if (hueDragging) handleHue(e);
+            });
+            hueCanvas.addEventListener('pointerup', function () { hueDragging = false; });
+
+            // Hex input
+            hexInput.addEventListener('input', function () {
+                var v = this.value.trim();
+                if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                    hsv = hexToHsv(v);
+                    updateFromHsv(true);
+                }
+            });
+            hexInput.addEventListener('blur', function () {
+                var v = this.value.trim();
+                if (!/^#[0-9a-fA-F]{6}$/.test(v)) {
+                    this.value = hsvToHex(hsv.h, hsv.s, hsv.v);
+                }
+            });
+            hexInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { this.blur(); }
+            });
+
+            // Presets
+            presetBtns.forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var c = this.getAttribute('data-color');
+                    hsv = hexToHsv(c);
+                    updateFromHsv(true);
+                });
+            });
+        });
+
+        // Close popover when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.ng-color-wrap')) {
+                closeAllPopovers(container);
+            }
+        });
+    }
+
+    function closeAllPopovers(container) {
+        container.querySelectorAll('.ng-cp-popover').forEach(function (p) {
+            p.style.display = 'none';
+        });
+    }
+
+    function updateSubSettings(container) {
+        // animateDeviceIcons only relevant if deviceIcons is on
+        var animRow = container.querySelector('[data-ng-key="animateDeviceIcons"]');
+        if (animRow) {
+            var row = animRow.closest('.ng-setting-row');
+            if (row) row.style.opacity = _settings.deviceIcons ? '1' : '0.4';
+        }
+        // defaultMode only relevant if toggle is hidden
+        var modeRow = container.querySelector('[data-ng-key="defaultMode"]');
+        if (modeRow) {
+            var row = modeRow.closest('.ng-setting-row');
+            if (row) row.style.opacity = _settings.showThemeToggle ? '0.4' : '1';
+        }
+    }
+
+    /* ── Initialize ────────────────────────────────────────────── */
+
+    function retryInjectPanel(attempts) {
+        if (_panelInjected || attempts <= 0) return;
+        injectPanel();
+        if (!_panelInjected) {
+            setTimeout(function () { retryInjectPanel(attempts - 1); }, 500);
+        } else {
+            hookOtherTabs();
+        }
+    }
+
+    function init() {
+        loadSettings().then(function () {
+            applySettings();
+            injectPanel();
+            hookOtherTabs();
+            if (!_panelInjected) {
+                retryInjectPanel(10);
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // Re-inject on SPA navigation (settings page may load later)
+    window.addEventListener('hashchange', function () {
+        _panelInjected = false;
+        setTimeout(function () {
+            if (_settings) {
+                injectPanel();
+                hookOtherTabs();
+            }
+        }, 500);
+    });
+
+    // Also watch for Angular route changes
+    var _retryCount = 0;
+    function hookAngularForSettings() {
+        var $body = document.querySelector('[ng-app]') || document.body;
+        var injector = window.angular && window.angular.element($body).injector();
+        if (!injector) {
+            if (++_retryCount < 20) setTimeout(hookAngularForSettings, 500);
+            return;
+        }
+        var $rootScope = injector.get('$rootScope');
+        $rootScope.$on('$viewContentLoaded', function () {
+            _panelInjected = false;
+            setTimeout(function () {
+                if (_settings) {
+                    injectPanel();
+                    hookOtherTabs();
+                }
+            }, 500);
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(hookAngularForSettings, 500);
+        });
+    } else {
+        setTimeout(hookAngularForSettings, 500);
+    }
+
+    // Expose for external use
+    window.dzNightglassSettings = {
+        get: function (key) { return _settings ? _settings[key] : DEFAULTS[key]; },
+        set: saveSetting,
+        reset: function () {
+            Object.keys(DEFAULTS).forEach(function (key) {
+                saveSetting(key, DEFAULTS[key]);
+            });
+        }
+    };
 })();
