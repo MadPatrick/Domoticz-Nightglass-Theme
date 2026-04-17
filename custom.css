@@ -125,6 +125,7 @@
     /* -- Semantic aliases (used throughout custom.css; redefine in body.dz-light for light mode) -- */
     --dz-bg: #1b1d25;
     --dz-bg-alt: #1e2028;
+    --dz-bg-alt-2: #21232c;
     --dz-surface: #23252f;
     --dz-surface-2: #2a2b35;
     --dz-surface-3: #2e3040;
@@ -159,6 +160,7 @@ body.dz-light {
     /* Semantic */
     --dz-bg: #f0f2f5;
     --dz-bg-alt: #e8eaed;
+    --dz-bg-alt-2: #eef0f3;
     --dz-surface: #ffffff;
     --dz-surface-2: #f5f6fa;
     --dz-surface-3: #e8eaed;
@@ -1997,7 +1999,7 @@ body table[id^="itemtable"] tr td.options {
     font-size: 0.75rem;
     line-height: 1.55;
     color: var(--dz-text-soft);
-    background: var(--dz-bg-alt);
+    background: var(--dz-bg-alt-2);
     border: 1px solid rgba(var(--dz-overlay-rgb), 0.04);
     border-radius: 8px;
     padding: 8px 10px;
