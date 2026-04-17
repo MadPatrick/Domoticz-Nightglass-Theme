@@ -1997,7 +1997,7 @@ body table[id^="itemtable"] tr td.options {
     font-size: 0.75rem;
     line-height: 1.55;
     color: var(--dz-text-soft);
-    background: var(--dz-bg-alt);
+    background: transparent;
     border: 1px solid rgba(var(--dz-overlay-rgb), 0.04);
     border-radius: 8px;
     padding: 8px 10px;
