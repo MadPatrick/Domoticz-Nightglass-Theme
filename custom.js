@@ -2293,6 +2293,8 @@ document.addEventListener('DOMContentLoaded', function () {
         surfaceColorLight:  '#f5f6fa',
         borderColorLight:   '#d0d3dc',
         textColorLight:     '#1a1c24',
+        pageBgColor:        '#1b1d25',
+        pageBgColorLight:   '#f0f2f5',
         cardTilt:           true,
         sparklines:         true,
         stalenessIndicator: true,
@@ -2568,6 +2570,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var sfL = _settings.surfaceColorLight || '#f5f6fa';
         var bdL = _settings.borderColorLight  || '#d0d3dc';
         var txL = _settings.textColorLight    || '#1a1c24';
+        var pbg  = _settings.pageBgColor       || '#1b1d25';
+        var pbgL = _settings.pageBgColorLight  || '#f0f2f5';
 
         var colorCSS =
             ':root {\n' +
@@ -2594,6 +2598,8 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-text: ' + tx + ';\n' +
             '  --dz-text-soft: ' + darkenHex(tx, 30) + ';\n' +
             '  --dz-text-muted: ' + darkenHex(tx, 60) + ';\n' +
+            '  --dz-bg: ' + pbg + ';\n' +
+            '  --dz-bg-alt: ' + lightenHex(pbg, 5) + ';\n' +
             '}\n' +
             'body.dz-light {\n' +
             '  --dz-accent: ' + acL + ';\n' +
@@ -2619,6 +2625,8 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-text: ' + txL + ';\n' +
             '  --dz-text-soft: ' + lightenHex(txL, 30) + ';\n' +
             '  --dz-text-muted: ' + lightenHex(txL, 60) + ';\n' +
+            '  --dz-bg: ' + pbgL + ';\n' +
+            '  --dz-bg-alt: ' + darkenHex(pbgL, 10) + ';\n' +
             '}\n';
 
         var colorStyle = document.getElementById('dz-ng-color-style');
@@ -2881,7 +2889,8 @@ document.addEventListener('DOMContentLoaded', function () {
             '<div class="ng-settings-section ng-settings-section--colors">' +
             '<div class="ng-section-header"><i class="fa-solid fa-fill-drip"></i> Background &amp; Surface</div>' +
             '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
-            dualColorPicker('bgColor', 'bgColorLight', 'Background') +
+            dualColorPicker('pageBgColor', 'pageBgColorLight', 'Page Background') +
+            dualColorPicker('bgColor', 'bgColorLight', 'Navbar &amp; Cards') +
             dualColorPicker('surfaceColor', 'surfaceColorLight', 'Card Surface') +
             dualColorPicker('borderColor', 'borderColorLight', 'Borders') +
             dualColorPicker('textColor', 'textColorLight', 'Text') +
