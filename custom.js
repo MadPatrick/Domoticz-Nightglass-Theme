@@ -2304,6 +2304,10 @@ document.addEventListener('DOMContentLoaded', function () {
         navAnimations:      true,
         smoothScrolling:    true,
         showLastUpdate:     false,
+        enableIcons:        true,
+        enableAppearance:   true,
+        enableEffects:      true,
+        enableColors:       true,
         fontSize:           '100'
     };
 
@@ -2753,6 +2757,46 @@ document.addEventListener('DOMContentLoaded', function () {
         // Font size
         var pct = parseInt(_settings.fontSize, 10) || 100;
         root.style.fontSize = pct === 100 ? '' : (pct + '%');
+
+        // Section-level master toggles
+        // When Icons section is disabled, revert all icon replacements
+        var iconsDisabledStyle = document.getElementById('dz-ng-icons-disabled');
+        if (!_settings.enableIcons) {
+            if (!iconsDisabledStyle) {
+                iconsDisabledStyle = document.createElement('style');
+                iconsDisabledStyle.id = 'dz-ng-icons-disabled';
+                iconsDisabledStyle.textContent =
+                    'i.dz-fa-device, i.dz-fa-icon, i.dz-fa-fav, i.dz-fa-trend, i.dz-fa-action, i.dz-fa-nav, i.dz-wind { display: none !important; }' +
+                    'img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }';
+                document.head.appendChild(iconsDisabledStyle);
+            }
+        } else if (iconsDisabledStyle) { iconsDisabledStyle.remove(); }
+
+        // When Effects section is disabled, kill all effects
+        var effectsDisabledStyle = document.getElementById('dz-ng-effects-disabled');
+        if (!_settings.enableEffects) {
+            if (!effectsDisabledStyle) {
+                effectsDisabledStyle = document.createElement('style');
+                effectsDisabledStyle.id = 'dz-ng-effects-disabled';
+                effectsDisabledStyle.textContent =
+                    '.dz-tilt-enabled { transform: none !important; }' +
+                    '.dz-sparkline-wrap { display: none !important; }' +
+                    '.dz-stale::before { display: none !important; }' +
+                    '.dz-flash-on, .dz-flash-off { animation: none !important; }' +
+                    '.dz-temp-accent { border-top: none !important; }' +
+                    'div.item.itemBlock, .itemBlock > div.item { transition: none !important; }' +
+                    'body table[id^="itemtable"] tbody tr { animation: none !important; }' +
+                    '.navbar .nav > li, .navbar .nav .dropdown-menu > li, .navbar .nav .dropdown-menu { animation-duration: 0s !important; animation-delay: 0s !important; }' +
+                    '.dz-nav-indicator { display: none !important; }';
+                document.head.appendChild(effectsDisabledStyle);
+            }
+        } else if (effectsDisabledStyle) { effectsDisabledStyle.remove(); }
+
+        // When Colors section is disabled, remove the custom color overrides
+        if (!_settings.enableColors) {
+            var cs = document.getElementById('dz-ng-color-style');
+            if (cs) cs.textContent = '';
+        }
     }
 
     /* ── Build the settings panel HTML ─────────────────────────── */
@@ -2822,6 +2866,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<span class="ng-slider-value">' + val + (unit || '') + '</span></div></div>';
         }
 
+        function sectionToggle(key) {
+            var checked = s[key] ? ' checked' : '';
+            return '<label class="ng-section-toggle" title="Enable / disable this section">' +
+                '<input type="checkbox" data-ng-section-key="' + key + '"' + checked + '>' +
+                '<span class="ng-section-toggle-slider"></span></label>';
+        }
         return '<div id="ng-theme-settings" class="ng-settings-panel">' +
 
             '<div class="ng-settings-header">' +
@@ -2834,15 +2884,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
             '<div class="ng-settings-grid">' +
 
-            /* Navbar Icons section */
+            /* Row 1: Navbar Icons (left) + Colors (right) */
             '<div class="ng-settings-section">' +
-            '<div class="ng-section-header"><i class="fa-solid fa-bars"></i> Navbar Icons</div>' +
+            '<div class="ng-section-header"><i class="fa-solid fa-bars"></i> Navbar Icons' + sectionToggle('enableIcons') + '</div>' +
             toggle('navbarIcons', 'Navbar Menu Icons', 'Replace PNG menu icons with Font Awesome in the navigation bar') +
             '</div>' +
 
-            /* Device / Card Icons section */
+            '<div class="ng-settings-section ng-settings-section--colors">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-droplet"></i> Colors' + sectionToggle('enableColors') + '</div>' +
+            '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
+            dualColorPicker('accentColor', 'accentColorLight', 'Accent Color') +
+            dualColorPicker('dangerColor', 'dangerColorLight', 'Danger Color') +
+            dualColorPicker('warningColor', 'warningColorLight', 'Warning Color') +
+            dualColorPicker('successColor', 'successColorLight', 'Success Color') +
+            '</div>' +
+
+            /* Row 2: Device Icons (left) + Background & Surface (right) */
             '<div class="ng-settings-section">' +
-            '<div class="ng-section-header"><i class="fa-solid fa-cube"></i> Device &amp; Card Icons</div>' +
+            '<div class="ng-section-header"><i class="fa-solid fa-cube"></i> Device &amp; Card Icons' + sectionToggle('enableIcons') + '</div>' +
             toggle('deviceIcons', 'Device Icons', 'Replace 48px PNG device icons with Font Awesome on cards') +
             toggle('animateDeviceIcons', 'Animate Device Icons', 'Spin fans, flicker flames, pulse presence sensors when active') +
             toggle('favStarIcons', 'Favorite Star Icons', 'Replace PNG stars with Font Awesome star icons') +
@@ -2850,9 +2909,19 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle('actionIcons', 'Action Icons', 'Replace PNG action icons (delete, rename, add) in data tables') +
             '</div>' +
 
-            /* Appearance section */
+            '<div class="ng-settings-section ng-settings-section--colors">' +
+            '<div class="ng-section-header"><i class="fa-solid fa-fill-drip"></i> Background &amp; Surface' + sectionToggle('enableColors') + '</div>' +
+            '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
+            dualColorPicker('pageBgColor', 'pageBgColorLight', 'Page Background') +
+            dualColorPicker('bgColor', 'bgColorLight', 'Navbar &amp; Cards') +
+            dualColorPicker('surfaceColor', 'surfaceColorLight', 'Card Surface') +
+            dualColorPicker('borderColor', 'borderColorLight', 'Borders') +
+            dualColorPicker('textColor', 'textColorLight', 'Text') +
+            '</div>' +
+
+            /* Row 3+: Appearance (left) */
             '<div class="ng-settings-section">' +
-            '<div class="ng-section-header"><i class="fa-solid fa-swatchbook"></i> Appearance</div>' +
+            '<div class="ng-section-header"><i class="fa-solid fa-swatchbook"></i> Appearance' + sectionToggle('enableAppearance') + '</div>' +
             toggle('showThemeToggle', 'Show Dark/Light Toggle', 'Display the sun/moon toggle button in the navbar') +
             select('defaultMode', 'Default Mode', [
                 { value: 'dark', label: '🌙 Dark' },
@@ -2862,9 +2931,9 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle('showLastUpdate', 'Show Last Update', 'Show the formatted timestamp footer on device cards') +
             '</div>' +
 
-            /* Effects section */
+            /* Row 4: Effects (left) */
             '<div class="ng-settings-section">' +
-            '<div class="ng-section-header"><i class="fa-solid fa-wand-magic-sparkles"></i> Effects &amp; Animations</div>' +
+            '<div class="ng-section-header"><i class="fa-solid fa-wand-magic-sparkles"></i> Effects &amp; Animations' + sectionToggle('enableEffects') + '</div>' +
             toggle('cardTilt', '3D Card Tilt', 'Subtle perspective tilt on hover') +
             toggle('sparklines', 'Sparkline Charts', 'Mini 24h trend charts as card watermarks') +
             toggle('stalenessIndicator', 'Staleness Dot', 'Pulsing red dot on devices that haven\'t updated in 24h') +
@@ -2873,27 +2942,6 @@ document.addEventListener('DOMContentLoaded', function () {
             toggle('cardAnimations', 'Card Animations', 'Entrance animations and hover transitions on cards') +
             toggle('navAnimations', 'Navbar Animations', 'Staggered entrances, sliding indicator, dropdown effects') +
             toggle('smoothScrolling', 'Smooth Scrolling', 'Enable smooth scroll behavior page-wide') +
-            '</div>' +
-
-            /* Colors section */
-            '<div class="ng-settings-section ng-settings-section--colors">' +
-            '<div class="ng-section-header"><i class="fa-solid fa-droplet"></i> Colors</div>' +
-            '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
-            dualColorPicker('accentColor', 'accentColorLight', 'Accent Color') +
-            dualColorPicker('dangerColor', 'dangerColorLight', 'Danger Color') +
-            dualColorPicker('warningColor', 'warningColorLight', 'Warning Color') +
-            dualColorPicker('successColor', 'successColorLight', 'Success Color') +
-            '</div>' +
-
-            /* Surface / Background Colors section */
-            '<div class="ng-settings-section ng-settings-section--colors">' +
-            '<div class="ng-section-header"><i class="fa-solid fa-fill-drip"></i> Background &amp; Surface</div>' +
-            '<div class="ng-dual-col-headers"><span class="ng-dual-label"><i class="fa-solid fa-moon"></i> Dark</span><span class="ng-dual-label"><i class="fa-solid fa-sun"></i> Light</span></div>' +
-            dualColorPicker('pageBgColor', 'pageBgColorLight', 'Page Background') +
-            dualColorPicker('bgColor', 'bgColorLight', 'Navbar &amp; Cards') +
-            dualColorPicker('surfaceColor', 'surfaceColorLight', 'Card Surface') +
-            dualColorPicker('borderColor', 'borderColorLight', 'Borders') +
-            dualColorPicker('textColor', 'textColorLight', 'Text') +
             '</div>' +
 
             '</div>' + /* grid end */
@@ -2980,6 +3028,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Bind interactive events ───────────────────────────────── */
 
+    function applySectionStates(container) {
+        container.querySelectorAll('input[data-ng-section-key]').forEach(function (cb) {
+            var section = cb.closest('.ng-settings-section');
+            if (!section) return;
+            if (cb.checked) {
+                section.classList.remove('ng-section-disabled');
+            } else {
+                section.classList.add('ng-section-disabled');
+            }
+        });
+    }
+
     function bindEvents(container) {
         // Toggles
         container.querySelectorAll('input[type="checkbox"][data-ng-key]').forEach(function (cb) {
@@ -2989,6 +3049,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateSubSettings(container);
             });
         });
+
+        // Section toggles (enable/disable entire section)
+        container.querySelectorAll('input[data-ng-section-key]').forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                var key = this.getAttribute('data-ng-section-key');
+                saveSetting(key, this.checked);
+                applySectionStates(container);
+            });
+        });
+        applySectionStates(container);
 
         // Color pickers (custom HSV canvas)
         initColorPickers(container);

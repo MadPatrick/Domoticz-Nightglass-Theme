@@ -5804,6 +5804,61 @@ body.dz-light .glass-alert-danger {
     grid-column: 2;
 }
 
+/* ── Section-level toggle (enable/disable) ───────────────────── */
+
+.ng-section-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.ng-section-toggle input { display: none; }
+
+.ng-section-toggle-slider {
+    width: 34px;
+    height: 18px;
+    background: var(--dz-border-b);
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.25s;
+}
+
+.ng-section-toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--dz-text-muted);
+    border-radius: 50%;
+    transition: transform 0.25s, background 0.25s;
+}
+
+.ng-section-toggle input:checked + .ng-section-toggle-slider {
+    background: rgba(var(--dz-accent-rgb), 0.35);
+}
+
+.ng-section-toggle input:checked + .ng-section-toggle-slider::after {
+    transform: translateX(16px);
+    background: var(--dz-accent);
+}
+
+.ng-section-header {
+    display: flex;
+    align-items: center;
+}
+
+/* Disabled section: fade contents, keep header interactive */
+.ng-section-disabled > *:not(.ng-section-header) {
+    opacity: 0.3;
+    pointer-events: none;
+    filter: grayscale(0.6);
+    transition: opacity 0.3s, filter 0.3s;
+}
+
 /* ── Dual color picker layout ────────────────────────────────── */
 
 .ng-setting-row--dual {
