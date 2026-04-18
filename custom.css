@@ -3674,10 +3674,10 @@ body.dz-light .log-scroll-indicator {
    ══════════════════════════════════════════════════════════════════ */
 
 /* ── Galaxy / constellation canvas ───────────────────────────────
-   The canvas background is drawn in JS using hardcoded cyan-blue
-   particles.  We tint them toward the theme's page background with
-   a mix-blend-mode overlay so the constellation effect is preserved
-   while the overall hue follows the active theme.                  */
+   The canvas is drawn by JS with hardcoded cyan-blue particles.
+   We desaturate + reduce opacity so the body background (which is
+   var(--dz-bg) from the theme) tints the overall colour.
+   The particle/constellation animation stays fully visible.       */
 #canvas-login,
 #canvas2 {
     position: fixed !important;
@@ -3687,33 +3687,14 @@ body.dz-light .log-scroll-indicator {
     height: 100%;
     z-index: 0;
     filter: saturate(0.2) brightness(0.85) !important;
+    opacity: 0.35;
 }
 
-/* Colored overlay that tints the canvas to match the theme.
-   Sits between the canvas (z-index 0) and the content (z-index 2).
-   The 0.82 opacity lets the particle animation bleed through.
-   Only applies on pages with the canvas (about / login).          */
-#aboutcontent .glass-container::before,
-#logincontent .glass-container::before,
-#login .glass-container::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--dz-bg);
-    opacity: 0.82;
-    z-index: 1;
-    pointer-events: none;
-}
-
-/* Glass container is the full-page wrapper — keep it transparent
-   so the canvas + tinted overlay show through behind the card.    */
+/* Glass container — transparent so the body bg + canvas show through */
 .glass-container {
     background: transparent !important;
     position: relative;
-    z-index: 2;
+    z-index: 1;
 }
 
 /* About page container */
@@ -5750,14 +5731,7 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
 body.dz-light #canvas-login,
 body.dz-light #canvas2 {
     filter: saturate(0.1) brightness(1.8) contrast(0.6) !important;
-    opacity: 0.5;
-}
-
-/* Light mode overlay — higher opacity for lighter background */
-body.dz-light #aboutcontent .glass-container::before,
-body.dz-light #logincontent .glass-container::before,
-body.dz-light #login .glass-container::before {
-    opacity: 0.88;
+    opacity: 0.25;
 }
 
 /* Glass card in light mode — solid light surface */
