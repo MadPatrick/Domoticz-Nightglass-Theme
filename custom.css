@@ -2279,21 +2279,17 @@ textarea {
 }
 
     #devicecontainer input[type="checkbox"].devicecheckbox {
-        accent-color: var(--dz-accent-color, #4e9af1);
+        /* base appearance comes from section 21 */
         width: 18px;
         height: 18px;
+        min-width: 18px;
         margin-right: 10px;
-        vertical-align: middle;
         border-radius: 6px;
-        background: rgba(255,255,255,0.08);
-        border: 1.5px solid var(--dz-accent-color, #4e9af1);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-        transition: border-color 0.2s;
     }
 
         #devicecontainer input[type="checkbox"].devicecheckbox:checked {
-            border-color: var(--dz-accent-color, #4e9af1);
-            background: rgba(78,154,241,0.18);
+            background: var(--dz-accent);
+            border-color: var(--dz-accent);
         }
 
     #devicecontainer label, #devicecontainer br, #devicecontainer input[type="checkbox"] {
@@ -4735,15 +4731,51 @@ table.mobileitem,
 
 
 /* ══════════════════════════════════════════════════════════════════
-   21. FANCY CHECKBOXES  (dark-friendly toggle switch)
+   21. FANCY CHECKBOXES  (dark-friendly, theme-matched)
    ══════════════════════════════════════════════════════════════════ */
 
-input[type='checkbox']:not(.noscheck) + label:after {
-    margin-left: 5px;
+/* Custom appearance for all non-excluded checkboxes */
+input[type='checkbox']:not(.noscheck) {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
+    background: var(--dz-surface-2);
+    border: 1.5px solid var(--dz-border-b);
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    display: inline-block;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    margin-right: 7px;
 }
 
-input[type='checkbox']:not(.noscheck):checked + label:after {
-    margin-left: 5px;
+input[type='checkbox']:not(.noscheck):hover {
+    border-color: var(--dz-accent);
+}
+
+input[type='checkbox']:not(.noscheck):checked {
+    background: var(--dz-accent);
+    border-color: var(--dz-accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' d='M3 8l4 4 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 11px 11px;
+}
+
+input[type='checkbox']:not(.noscheck):focus {
+    outline: 2px solid rgba(var(--dz-accent-rgb), 0.35);
+    outline-offset: 2px;
+    border-color: var(--dz-accent);
+}
+
+/* Labels and spans that immediately follow a checkbox get proper spacing */
+input[type='checkbox']:not(.noscheck) + label,
+input[type='checkbox']:not(.noscheck) + span {
+    vertical-align: middle;
+    cursor: pointer;
+    margin-right: 14px;
 }
 
 
