@@ -2626,8 +2626,34 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-text: ' + tx + ';\n' +
             '  --dz-text-soft: ' + darkenHex(tx, 30) + ';\n' +
             '  --dz-text-muted: ' + darkenHex(tx, 60) + ';\n' +
+            '  --dz-text-faint: ' + darkenHex(tx, 90) + ';\n' +
             '  --dz-bg: ' + pbg + ';\n' +
             '  --dz-bg-alt: ' + lightenHex(pbg, 5) + ';\n' +
+            '  --dz-nav-bg: ' + bg + ';\n' +
+            '  --dz-table-odd-bg: ' + bg + ';\n' +
+            '  --dz-table-even-bg: ' + pbg + ';\n' +
+            '  --dz-table-odd-text: ' + tx + ';\n' +
+            '  --dz-table-even-text: ' + tx + ';\n' +
+            '  --dz-panel-bg: ' + bg + ';\n' +
+            '  --dz-panel-text: ' + tx + ';\n' +
+            '  --dz-modal-bg: ' + bg + ';\n' +
+            '  --dz-modal-text: ' + tx + ';\n' +
+            '  --dz-modal-header-bg: ' + sf + ';\n' +
+            '  --dz-input-bg: ' + sf + ';\n' +
+            '  --dz-input-text: ' + tx + ';\n' +
+            '  --dz-input-border: ' + bd + ';\n' +
+            '  --dz-btn-bg: ' + sf + ';\n' +
+            '  --dz-btn-text: ' + tx + ';\n' +
+            '  --dz-btn-border: ' + lightenHex(bd, 10) + ';\n' +
+            '  --dz-btn-hover-bg: ' + lightenHex(sf, 10) + ';\n' +
+            '  --dz-overlay-rgb: 255, 255, 255;\n' +
+            '  --dz-surface-rgb: ' + hexToRgb(bg) + ';\n' +
+            '  --dz-border-rgb: ' + hexToRgb(bd) + ';\n' +
+            '  --dz-border-color: ' + bd + ';\n' +
+            '  --dz-body-bg: ' + pbg + ';\n' +
+            '  --dz-body-text: ' + tx + ';\n' +
+            '  --dz-widget-bg: ' + bg + ';\n' +
+            '  --dz-widget-text: ' + tx + ';\n' +
             '}\n' +
             'body.dz-light {\n' +
             '  --dz-accent: ' + acL + ';\n' +
@@ -2653,8 +2679,34 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-text: ' + txL + ';\n' +
             '  --dz-text-soft: ' + lightenHex(txL, 30) + ';\n' +
             '  --dz-text-muted: ' + lightenHex(txL, 60) + ';\n' +
+            '  --dz-text-faint: ' + lightenHex(txL, 90) + ';\n' +
             '  --dz-bg: ' + pbgL + ';\n' +
             '  --dz-bg-alt: ' + darkenHex(pbgL, 10) + ';\n' +
+            '  --dz-nav-bg: ' + bgL + ';\n' +
+            '  --dz-table-odd-bg: ' + bgL + ';\n' +
+            '  --dz-table-even-bg: ' + sfL + ';\n' +
+            '  --dz-table-odd-text: ' + txL + ';\n' +
+            '  --dz-table-even-text: ' + txL + ';\n' +
+            '  --dz-panel-bg: ' + bgL + ';\n' +
+            '  --dz-panel-text: ' + txL + ';\n' +
+            '  --dz-modal-bg: ' + bgL + ';\n' +
+            '  --dz-modal-text: ' + txL + ';\n' +
+            '  --dz-modal-header-bg: ' + sfL + ';\n' +
+            '  --dz-input-bg: ' + sfL + ';\n' +
+            '  --dz-input-text: ' + txL + ';\n' +
+            '  --dz-input-border: ' + bdL + ';\n' +
+            '  --dz-btn-bg: ' + sfL + ';\n' +
+            '  --dz-btn-text: ' + txL + ';\n' +
+            '  --dz-btn-border: ' + darkenHex(bdL, 10) + ';\n' +
+            '  --dz-btn-hover-bg: ' + darkenHex(sfL, 10) + ';\n' +
+            '  --dz-overlay-rgb: 0, 0, 0;\n' +
+            '  --dz-surface-rgb: ' + hexToRgb(bgL) + ';\n' +
+            '  --dz-border-rgb: ' + hexToRgb(bdL) + ';\n' +
+            '  --dz-border-color: ' + bdL + ';\n' +
+            '  --dz-body-bg: ' + pbgL + ';\n' +
+            '  --dz-body-text: ' + txL + ';\n' +
+            '  --dz-widget-bg: ' + bgL + ';\n' +
+            '  --dz-widget-text: ' + txL + ';\n' +
             '}\n';
 
         var colorStyle = document.getElementById('dz-ng-color-style');
