@@ -2626,8 +2626,38 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-text: ' + tx + ';\n' +
             '  --dz-text-soft: ' + darkenHex(tx, 30) + ';\n' +
             '  --dz-text-muted: ' + darkenHex(tx, 60) + ';\n' +
+            '  --dz-text-faint: ' + darkenHex(tx, 90) + ';\n' +
             '  --dz-bg: ' + pbg + ';\n' +
             '  --dz-bg-alt: ' + lightenHex(pbg, 5) + ';\n' +
+            '  --dz-nav-bg: ' + bg + ';\n' +
+            '  --dz-table-odd-bg: ' + bg + ';\n' +
+            '  --dz-table-even-bg: ' + pbg + ';\n' +
+            '  --dz-table-odd-text: ' + tx + ';\n' +
+            '  --dz-table-even-text: ' + tx + ';\n' +
+            '  --dz-panel-bg: ' + bg + ';\n' +
+            '  --dz-panel-text: ' + tx + ';\n' +
+            '  --dz-modal-bg: ' + bg + ';\n' +
+            '  --dz-modal-text: ' + tx + ';\n' +
+            '  --dz-modal-header-bg: ' + sf + ';\n' +
+            '  --dz-input-bg: ' + sf + ';\n' +
+            '  --dz-input-text: ' + tx + ';\n' +
+            '  --dz-input-border: ' + bd + ';\n' +
+            '  --dz-btn-bg: ' + sf + ';\n' +
+            '  --dz-btn-text: ' + tx + ';\n' +
+            '  --dz-btn-border: ' + lightenHex(bd, 10) + ';\n' +
+            '  --dz-btn-hover-bg: ' + lightenHex(sf, 10) + ';\n' +
+            '  --dz-btn-primary-text: #fff;\n' +
+            '  --dz-btn-warning-bg: ' + wc + ';\n' +
+            '  --dz-btn-danger-bg: ' + dc + ';\n' +
+            '  --dz-btn-success-bg: ' + sc + ';\n' +
+            '  --dz-overlay-rgb: 255, 255, 255;\n' +
+            '  --dz-surface-rgb: ' + hexToRgb(bg) + ';\n' +
+            '  --dz-border-rgb: ' + hexToRgb(bd) + ';\n' +
+            '  --dz-border-color: ' + bd + ';\n' +
+            '  --dz-body-bg: ' + pbg + ';\n' +
+            '  --dz-body-text: ' + tx + ';\n' +
+            '  --dz-widget-bg: ' + bg + ';\n' +
+            '  --dz-widget-text: ' + tx + ';\n' +
             '}\n' +
             'body.dz-light {\n' +
             '  --dz-accent: ' + acL + ';\n' +
@@ -2653,8 +2683,38 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-text: ' + txL + ';\n' +
             '  --dz-text-soft: ' + lightenHex(txL, 30) + ';\n' +
             '  --dz-text-muted: ' + lightenHex(txL, 60) + ';\n' +
+            '  --dz-text-faint: ' + lightenHex(txL, 90) + ';\n' +
             '  --dz-bg: ' + pbgL + ';\n' +
             '  --dz-bg-alt: ' + darkenHex(pbgL, 10) + ';\n' +
+            '  --dz-nav-bg: ' + bgL + ';\n' +
+            '  --dz-table-odd-bg: ' + bgL + ';\n' +
+            '  --dz-table-even-bg: ' + sfL + ';\n' +
+            '  --dz-table-odd-text: ' + txL + ';\n' +
+            '  --dz-table-even-text: ' + txL + ';\n' +
+            '  --dz-panel-bg: ' + bgL + ';\n' +
+            '  --dz-panel-text: ' + txL + ';\n' +
+            '  --dz-modal-bg: ' + bgL + ';\n' +
+            '  --dz-modal-text: ' + txL + ';\n' +
+            '  --dz-modal-header-bg: ' + sfL + ';\n' +
+            '  --dz-input-bg: ' + sfL + ';\n' +
+            '  --dz-input-text: ' + txL + ';\n' +
+            '  --dz-input-border: ' + bdL + ';\n' +
+            '  --dz-btn-bg: ' + sfL + ';\n' +
+            '  --dz-btn-text: ' + txL + ';\n' +
+            '  --dz-btn-border: ' + darkenHex(bdL, 10) + ';\n' +
+            '  --dz-btn-hover-bg: ' + darkenHex(sfL, 10) + ';\n' +
+            '  --dz-btn-primary-text: #fff;\n' +
+            '  --dz-btn-warning-bg: ' + wcL + ';\n' +
+            '  --dz-btn-danger-bg: ' + dcL + ';\n' +
+            '  --dz-btn-success-bg: ' + scL + ';\n' +
+            '  --dz-overlay-rgb: 0, 0, 0;\n' +
+            '  --dz-surface-rgb: ' + hexToRgb(bgL) + ';\n' +
+            '  --dz-border-rgb: ' + hexToRgb(bdL) + ';\n' +
+            '  --dz-border-color: ' + bdL + ';\n' +
+            '  --dz-body-bg: ' + pbgL + ';\n' +
+            '  --dz-body-text: ' + txL + ';\n' +
+            '  --dz-widget-bg: ' + bgL + ';\n' +
+            '  --dz-widget-text: ' + txL + ';\n' +
             '}\n';
 
         var colorStyle = document.getElementById('dz-ng-color-style');
@@ -2919,6 +2979,16 @@ document.addEventListener('DOMContentLoaded', function () {
             '<button class="ng-reset-btn" id="ngResetBtn" title="Reset all settings to defaults">' +
             '<i class="fa-solid fa-rotate-left"></i> Reset</button></div>' +
 
+            '<div class="ng-presets-section" id="ngPresetsSection">' +
+            '<button class="ng-presets-toggle" id="ngPresetsToggle" type="button">' +
+            '<div class="ng-presets-toggle-left"><i class="fa-solid fa-swatchbook"></i> Theme Presets</div>' +
+            '<i class="fa-solid fa-chevron-down ng-presets-chevron"></i>' +
+            '</button>' +
+            '<div class="ng-presets-body" id="ngPresetsBody" style="display:none;">' +
+            '<div class="ng-presets-grid" id="ngPresetsGrid">' +
+            '<div class="ng-preset-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading presets…</div>' +
+            '</div></div></div>' +
+
             '<div class="ng-settings-grid">' +
 
             /* Left column: Icons, Appearance, Effects */
@@ -2999,6 +3069,120 @@ document.addEventListener('DOMContentLoaded', function () {
             '</div>';
     }
 
+    /* ── Theme Preset Loader ───────────────────────────────────── */
+
+    var PRESET_FILES = [
+        'nightglass', 'emerald-forest', 'solar-flare', 'arctic-ice',
+        'violet-nebula', 'rose-gold', 'monochrome', 'crimson-ember',
+        'matrix', 'cyberpunk', 'dracula', 'solarized',
+        'synthwave', 'nord', 'hacker', 'ocean-depth'
+    ];
+
+    var _presetsCache = null;
+
+    function loadPresets(container) {
+        var grid = container.querySelector('#ngPresetsGrid');
+        if (!grid) return;
+
+        if (_presetsCache) {
+            renderPresets(grid, _presetsCache);
+            return;
+        }
+
+        var themePath = (function () {
+            var scripts = document.querySelectorAll('script[src*="custom.js"]');
+            for (var i = 0; i < scripts.length; i++) {
+                var src = scripts[i].getAttribute('src') || '';
+                var idx = src.indexOf('custom.js');
+                if (idx !== -1) return src.substring(0, idx) + 'themes/';
+            }
+            var links = document.querySelectorAll('link[href*="custom.css"]');
+            for (var j = 0; j < links.length; j++) {
+                var href = links[j].getAttribute('href') || '';
+                var idx2 = href.indexOf('custom.css');
+                if (idx2 !== -1) return href.substring(0, idx2) + 'themes/';
+            }
+            return 'themes/';
+        })();
+
+        var promises = PRESET_FILES.map(function (name) {
+            return fetch(themePath + name + '.json', { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .catch(function () { return null; });
+        });
+
+        Promise.all(promises).then(function (results) {
+            _presetsCache = results.filter(function (r) { return r !== null; });
+            renderPresets(grid, _presetsCache);
+        });
+    }
+
+    function renderPresets(grid, presets) {
+        if (!presets || !presets.length) {
+            grid.innerHTML = '<div class="ng-preset-loading">No presets found</div>';
+            return;
+        }
+
+        var html = '';
+        for (var i = 0; i < presets.length; i++) {
+            var p = presets[i];
+            var pv = p.preview || {};
+            var bg = pv.bg || '#1b1d25';
+            var sf = pv.surface || '#23252f';
+            var ac = pv.accent || '#4e9af1';
+            var tx = pv.text || '#e2e4ed';
+            var icon = p.icon || 'fa-solid fa-palette';
+
+            html += '<button class="ng-preset-card" data-ng-preset-idx="' + i + '" title="' + (p.description || p.name) + '">' +
+                '<div class="ng-preset-preview" style="background:' + bg + ';">' +
+                '<div class="ng-preset-preview-bar" style="background:' + sf + ';border-bottom:2px solid ' + ac + ';"></div>' +
+                '<div class="ng-preset-preview-body">' +
+                '<div class="ng-preset-preview-card" style="background:' + sf + ';border:1px solid ' + ac + '30;">' +
+                '<i class="' + icon + '" style="color:' + ac + ';font-size:14px;"></i>' +
+                '<div class="ng-preset-preview-lines">' +
+                '<div style="background:' + tx + ';width:70%;height:3px;border-radius:2px;opacity:0.7;"></div>' +
+                '<div style="background:' + ac + ';width:45%;height:3px;border-radius:2px;opacity:0.6;"></div>' +
+                '</div></div>' +
+                '<div class="ng-preset-preview-card" style="background:' + sf + ';border:1px solid ' + ac + '30;">' +
+                '<div class="ng-preset-preview-lines">' +
+                '<div style="background:' + tx + ';width:55%;height:3px;border-radius:2px;opacity:0.5;"></div>' +
+                '<div style="background:' + ac + ';width:35%;height:3px;border-radius:2px;opacity:0.4;"></div>' +
+                '</div></div>' +
+                '</div></div>' +
+                '<div class="ng-preset-info">' +
+                '<span class="ng-preset-name">' + p.name + '</span>' +
+                '<span class="ng-preset-desc">' + (p.description || '') + '</span>' +
+                '</div></button>';
+        }
+        grid.innerHTML = html;
+
+        grid.querySelectorAll('.ng-preset-card').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var idx = parseInt(this.getAttribute('data-ng-preset-idx'), 10);
+                applyPreset(presets[idx]);
+                grid.querySelectorAll('.ng-preset-card').forEach(function (b) {
+                    b.classList.remove('ng-preset-card--active');
+                });
+                this.classList.add('ng-preset-card--active');
+            });
+        });
+    }
+
+    function applyPreset(preset) {
+        if (!preset || !preset.colors) return;
+        var colors = preset.colors;
+        Object.keys(colors).forEach(function (key) {
+            saveSetting(key, colors[key]);
+        });
+        // Re-render the settings panel to reflect new colors
+        var wrap = document.getElementById('ng-theme-settings-wrap');
+        if (wrap) {
+            wrap.innerHTML = buildPanel();
+            bindEvents(wrap);
+            loadPresets(wrap);
+        }
+    }
+
     /* ── Inject panel into settings page ───────────────────────── */
 
     function injectPanel() {
@@ -3019,6 +3203,7 @@ document.addEventListener('DOMContentLoaded', function () {
         wrap.innerHTML = buildPanel();
         settingsContent.appendChild(wrap);
         bindEvents(wrap);
+        loadPresets(wrap);
 
         var li = document.createElement('li');
         li.id = 'ng-settings-tab';
@@ -3084,6 +3269,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function bindEvents(container) {
+        // Presets panel collapse/expand
+        var presetsToggle = container.querySelector('#ngPresetsToggle');
+        var presetsBody = container.querySelector('#ngPresetsBody');
+        if (presetsToggle && presetsBody) {
+            presetsToggle.addEventListener('click', function () {
+                var open = presetsBody.style.display !== 'none';
+                presetsBody.style.display = open ? 'none' : '';
+                presetsToggle.classList.toggle('ng-presets-toggle--open', !open);
+            });
+        }
+
         // Toggles
         container.querySelectorAll('input[type="checkbox"][data-ng-key]').forEach(function (cb) {
             cb.addEventListener('change', function () {
@@ -3135,6 +3331,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (wrap) {
                     wrap.innerHTML = buildPanel();
                     bindEvents(wrap);
+                    loadPresets(wrap);
                 }
             });
         }
@@ -3182,6 +3379,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (wrap) {
                             wrap.innerHTML = buildPanel();
                             bindEvents(wrap);
+                            loadPresets(wrap);
                         }
                         alert('Imported ' + count + ' settings successfully.');
                     } catch (err) {
