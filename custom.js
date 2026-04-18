@@ -2327,6 +2327,7 @@ document.addEventListener('DOMContentLoaded', function () {
         navAnimations:      true,
         smoothScrolling:    true,
         showLastUpdate:     false,
+        uppercaseNames:     true,
         enableIcons:        true,
         enableAppearance:   true,
         enableEffects:      true,
@@ -2777,6 +2778,19 @@ document.addEventListener('DOMContentLoaded', function () {
             luStyle.remove();
         }
 
+        // Uppercase device names
+        var ucStyle = document.getElementById('dz-ng-uc-style');
+        if (!_settings.uppercaseNames) {
+            if (!ucStyle) {
+                ucStyle = document.createElement('style');
+                ucStyle.id = 'dz-ng-uc-style';
+                ucStyle.textContent = 'body table[id^="itemtable"] tr td:first-child { text-transform: none !important; }';
+                document.head.appendChild(ucStyle);
+            }
+        } else if (ucStyle) {
+            ucStyle.remove();
+        }
+
         // Font size
         var pct = parseInt(_settings.fontSize, 10) || 100;
         root.style.fontSize = pct === 100 ? '' : (pct + '%');
@@ -2952,6 +2966,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ], 'Used when the toggle is hidden') +
             slider('fontSize', 'Base Font Size', 80, 130, 5, '%', 'Scale the entire interface') +
             toggle('showLastUpdate', 'Show Last Update', 'Show the formatted timestamp footer on device cards') +
+            toggle('uppercaseNames', 'Uppercase Device Names', 'Force device names to UPPERCASE on cards') +
             '</div>' +
 
             /* Row 4: Effects (left) */
