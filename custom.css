@@ -3674,16 +3674,106 @@ body.dz-light .log-scroll-indicator {
    ══════════════════════════════════════════════════════════════════ */
 
 /* ── Galaxy / constellation canvas ───────────────────────────────
-   The canvas background is drawn in JS using cyan-blue particles
-   (rgba(100,200,255)) on a dark-blue gradient. We can't change the
-   JS draw calls via CSS, but a CSS filter remaps the rendered output:
-   - saturate(0.15) → strips almost all blue; stars become near-white
-   - brightness(0.88) → darkens slightly to match --bg-primary tone
-   The star/movement/connection effect is fully preserved.        */
+   The canvas background is drawn in JS using hardcoded colors.
+   We use hue-rotate + saturate to tint stars toward the theme accent,
+   and overlay the theme's page background so the canvas adapts.     */
 #canvas-login,
 #canvas2 {
     filter: saturate(0.15) brightness(0.88) !important;
 }
+
+/* Overlay the theme's page background behind the canvas particles
+   so the animated background matches the current theme colors.     */
+#canvas-login,
+#canvas2 {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+/* Use the glass-container's parent as the themed backdrop */
+.glass-container {
+    background: var(--dz-bg) !important;
+}
+
+/* About page container — use theme background */
+#aboutcontent {
+    background: var(--dz-bg) !important;
+    color: var(--dz-text) !important;
+}
+
+    #aboutcontent .glass-container {
+        background: var(--dz-bg) !important;
+    }
+
+/* About page text */
+.about-title {
+    color: var(--dz-text) !important;
+}
+
+.about-subtitle,
+.glass-container .glass-text {
+    color: var(--dz-text-soft) !important;
+}
+
+.version-badge {
+    background: linear-gradient(135deg, rgba(var(--dz-accent-rgb), 0.2), rgba(var(--dz-accent-rgb), 0.08)) !important;
+    color: var(--dz-text) !important;
+    border-color: rgba(var(--dz-accent-rgb), 0.35) !important;
+}
+
+.info-item {
+    color: var(--dz-text-soft) !important;
+    border-bottom-color: var(--dz-border) !important;
+}
+
+    .info-item .info-label {
+        color: var(--dz-text-muted) !important;
+    }
+
+    .info-item .info-value {
+        color: var(--dz-text) !important;
+    }
+
+/* Login page — theme background and text */
+#logincontent,
+#login {
+    background: var(--dz-bg) !important;
+    color: var(--dz-text) !important;
+}
+
+    #logincontent .glass-container,
+    #login .glass-container {
+        background: var(--dz-bg) !important;
+    }
+
+    #logincontent h1,
+    #logincontent h2,
+    #logincontent h3,
+    #logincontent label,
+    #login h1,
+    #login h2,
+    #login h3,
+    #login label {
+        color: var(--dz-text) !important;
+    }
+
+    #logincontent input[type="text"],
+    #logincontent input[type="password"],
+    #login input[type="text"],
+    #login input[type="password"] {
+        background: var(--dz-surface-2) !important;
+        color: var(--dz-text) !important;
+        border-color: var(--dz-border) !important;
+    }
+
+        #logincontent input:focus,
+        #login input:focus {
+            border-color: var(--dz-accent) !important;
+        }
 
 .glass-card {
     background: rgba(var(--dz-surface-rgb), 0.7);
@@ -3708,19 +3798,19 @@ body.dz-light .log-scroll-indicator {
 }
 
 .glass-progress-info {
-    background: linear-gradient(135deg, rgba(var(--dz-accent-rgb), 0.6), rgba(61, 137, 224, 0.4));
+    background: linear-gradient(135deg, rgba(var(--dz-accent-rgb), 0.6), rgba(var(--dz-accent-rgb), 0.4));
     box-shadow: 0 0 10px rgba(var(--dz-accent-rgb), 0.3);
 }
 
 .glass-progress-warning {
-    background: linear-gradient(135deg, rgba(240, 168, 50, 0.6), rgba(217, 149, 40, 0.4));
-    box-shadow: 0 0 10px rgba(240, 168, 50, 0.3);
+    background: linear-gradient(135deg, rgba(var(--dz-accent-rgb), 0.4), rgba(var(--dz-accent-rgb), 0.2));
+    box-shadow: 0 0 10px rgba(var(--dz-accent-rgb), 0.2);
 }
 
 .glass-alert-danger {
-    background: rgba(224, 85, 85, 0.12);
-    border: 1px solid rgba(224, 85, 85, 0.25);
-    color: rgba(255, 150, 150, 0.95);
+    background: rgba(var(--dz-accent-rgb), 0.06);
+    border: 1px solid rgba(var(--dz-accent-rgb), 0.15);
+    color: var(--dz-danger);
 }
 
 .glass-file-input {
@@ -3845,7 +3935,7 @@ body.dz-light .log-scroll-indicator {
 }
 
 #dashcontent > #emain {
-    background: radial-gradient(circle at top, rgba(var(--dz-accent-rgb), 0.10), transparent 42%), linear-gradient(180deg, rgba(42, 43, 53, 0.96), rgba(30, 32, 40, 0.96)) !important;
+    background: radial-gradient(circle at top, rgba(var(--dz-accent-rgb), 0.10), transparent 42%), linear-gradient(180deg, rgba(var(--dz-surface-rgb), 0.96), rgba(var(--dz-surface-rgb), 0.98)) !important;
     border: 1px solid rgba(var(--dz-accent-rgb), 0.16) !important;
     border-radius: 22px !important;
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(var(--dz-overlay-rgb), 0.04) !important;
@@ -3859,7 +3949,8 @@ body.dz-light .log-scroll-indicator {
     }
 
     #dashcontent > #emain .etext,
-    #dashcontent > #emain #ltext {
+    #dashcontent > #emain #ltext,
+    #dashcontent > #emain foreignObject div {
         fill: var(--dz-text) !important;
         color: var(--dz-text) !important;
     }
@@ -3955,8 +4046,8 @@ body.dz-light #dashcontent {
 
     body.dz-light #emain,
     body.dz-light #dashcontent > #emain {
-        background: radial-gradient(circle at top, rgba(42, 125, 225, 0.06), transparent 42%), linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 246, 250, 0.96)) !important;
-        border: 1px solid rgba(42, 125, 225, 0.12) !important;
+        background: radial-gradient(circle at top, rgba(var(--dz-accent-rgb), 0.06), transparent 42%), linear-gradient(180deg, rgba(var(--dz-surface-rgb), 0.96), rgba(var(--dz-surface-rgb), 0.98)) !important;
+        border: 1px solid rgba(var(--dz-accent-rgb), 0.12) !important;
         border-radius: 22px !important;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
         backdrop-filter: blur(14px) saturate(1.15) !important;
@@ -3986,55 +4077,58 @@ body.dz-light #dashcontent {
     /* Circle styles for light mode — softer fills, darker strokes */
     body.dz-light #dashcontent .ecircle-solar {
         fill: rgba(240, 168, 50, 0.08) !important;
-        stroke: #c07818 !important;
+        stroke: var(--dz-warning) !important;
     }
 
     body.dz-light #dashcontent .ecircle-grid {
-        fill: rgba(42, 125, 225, 0.08) !important;
-        stroke: #2a7de1 !important;
+        fill: rgba(var(--dz-accent-rgb), 0.08) !important;
+        stroke: var(--dz-accent) !important;
     }
 
     body.dz-light #dashcontent .ecircle-home {
-        fill: rgba(124, 79, 192, 0.08) !important;
-        stroke: #7c4fc0 !important;
+        fill: rgba(200, 160, 255, 0.06) !important;
+        stroke: var(--dz-widget-energy-price, #7c4fc0) !important;
     }
 
     body.dz-light #dashcontent .ecircle-batt {
-        fill: rgba(46, 140, 88, 0.08) !important;
-        stroke: #2e8c58 !important;
+        fill: rgba(76, 175, 125, 0.06) !important;
+        stroke: var(--dz-success) !important;
     }
 
     body.dz-light #dashcontent .ecircle-gas {
-        fill: rgba(201, 74, 26, 0.08) !important;
-        stroke: #c94a1a !important;
+        fill: rgba(255, 112, 67, 0.06) !important;
+        stroke: var(--dz-widget-energy-gas, #c94a1a) !important;
     }
 
     body.dz-light #dashcontent .ecircle-water {
-        fill: rgba(42, 125, 225, 0.08) !important;
-        stroke: #2a7de1 !important;
+        fill: rgba(var(--dz-accent-rgb), 0.06) !important;
+        stroke: var(--dz-widget-energy-water, var(--dz-accent)) !important;
     }
 
     body.dz-light #dashcontent .ecircle-custom {
-        fill: rgba(107, 110, 127, 0.06) !important;
-        stroke: #6b6e7f !important;
+        fill: rgba(var(--dz-border-rgb), 0.06) !important;
+        stroke: var(--dz-text-muted) !important;
     }
 
     /* Flow lines — darker for light backgrounds */
     body.dz-light #dashcontent #SolarToBatt,
     body.dz-light #dashcontent #SolarToHome,
     body.dz-light #dashcontent #SolarToGrid {
-        stroke: rgba(192, 120, 24, 0.5) !important;
+        stroke: var(--dz-warning) !important;
+        stroke-opacity: 0.5 !important;
     }
 
     body.dz-light #dashcontent #GridToHome,
     body.dz-light #dashcontent #lineRT1,
     body.dz-light #dashcontent #lineRB1 {
-        stroke: rgba(42, 125, 225, 0.4) !important;
+        stroke: var(--dz-accent) !important;
+        stroke-opacity: 0.4 !important;
     }
 
     body.dz-light #dashcontent #BattNet,
     body.dz-light #dashcontent #BattHome {
-        stroke: rgba(46, 140, 88, 0.5) !important;
+        stroke: var(--dz-success) !important;
+        stroke-opacity: 0.5 !important;
     }
 
     /* Flow dot drop-shadow for light mode */
@@ -5635,7 +5729,7 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
    We override them here for body.dz-light.
    ══════════════════════════════════════════════════════════════════ */
 
-/* Canvas background — lighten instead of darken */
+/* Canvas background — lighten for light mode */
 body.dz-light #canvas-login,
 body.dz-light #canvas2 {
     filter: saturate(0.1) brightness(1.6) contrast(0.7) !important;
@@ -5659,10 +5753,10 @@ body.dz-light .about-title {
 
 /* Version badge */
 body.dz-light .version-badge {
-    background: linear-gradient(135deg, rgba(42, 125, 225, 0.15), rgba(42, 125, 225, 0.08)) !important;
+    background: linear-gradient(135deg, rgba(var(--dz-accent-rgb), 0.15), rgba(var(--dz-accent-rgb), 0.08)) !important;
     color: var(--dz-text) !important;
-    border-color: rgba(42, 125, 225, 0.3) !important;
-    box-shadow: 0 0 10px rgba(42, 125, 225, 0.1) !important;
+    border-color: rgba(var(--dz-accent-rgb), 0.3) !important;
+    box-shadow: 0 0 10px rgba(var(--dz-accent-rgb), 0.1) !important;
     animation: none !important;
 }
 
@@ -5707,14 +5801,14 @@ body.dz-light .glass-container {
 
 /* btn-modern in light mode */
 body.dz-light .btn-modern {
-    background: rgba(42, 125, 225, 0.08) !important;
-    border-color: rgba(42, 125, 225, 0.25) !important;
+    background: rgba(var(--dz-accent-rgb), 0.08) !important;
+    border-color: rgba(var(--dz-accent-rgb), 0.25) !important;
     color: var(--dz-text) !important;
 }
 
     body.dz-light .btn-modern:hover {
-        background: rgba(42, 125, 225, 0.18) !important;
-        border-color: rgba(42, 125, 225, 0.45) !important;
+        background: rgba(var(--dz-accent-rgb), 0.18) !important;
+        border-color: rgba(var(--dz-accent-rgb), 0.45) !important;
         color: var(--dz-accent) !important;
         box-shadow: 0 4px 16px rgba(42, 125, 225, 0.12) !important;
     }

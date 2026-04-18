@@ -2646,6 +2646,10 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-btn-text: ' + tx + ';\n' +
             '  --dz-btn-border: ' + lightenHex(bd, 10) + ';\n' +
             '  --dz-btn-hover-bg: ' + lightenHex(sf, 10) + ';\n' +
+            '  --dz-btn-primary-text: #fff;\n' +
+            '  --dz-btn-warning-bg: ' + wc + ';\n' +
+            '  --dz-btn-danger-bg: ' + dc + ';\n' +
+            '  --dz-btn-success-bg: ' + sc + ';\n' +
             '  --dz-overlay-rgb: 255, 255, 255;\n' +
             '  --dz-surface-rgb: ' + hexToRgb(bg) + ';\n' +
             '  --dz-border-rgb: ' + hexToRgb(bd) + ';\n' +
@@ -2699,6 +2703,10 @@ document.addEventListener('DOMContentLoaded', function () {
             '  --dz-btn-text: ' + txL + ';\n' +
             '  --dz-btn-border: ' + darkenHex(bdL, 10) + ';\n' +
             '  --dz-btn-hover-bg: ' + darkenHex(sfL, 10) + ';\n' +
+            '  --dz-btn-primary-text: #fff;\n' +
+            '  --dz-btn-warning-bg: ' + wcL + ';\n' +
+            '  --dz-btn-danger-bg: ' + dcL + ';\n' +
+            '  --dz-btn-success-bg: ' + scL + ';\n' +
             '  --dz-overlay-rgb: 0, 0, 0;\n' +
             '  --dz-surface-rgb: ' + hexToRgb(bgL) + ';\n' +
             '  --dz-border-rgb: ' + hexToRgb(bdL) + ';\n' +
