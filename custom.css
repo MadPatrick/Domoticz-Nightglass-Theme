@@ -3674,16 +3674,10 @@ body.dz-light .log-scroll-indicator {
    ══════════════════════════════════════════════════════════════════ */
 
 /* ── Galaxy / constellation canvas ───────────────────────────────
-   The canvas background is drawn in JS using hardcoded colors.
-   We use hue-rotate + saturate to tint stars toward the theme accent,
-   and overlay the theme's page background so the canvas adapts.     */
-#canvas-login,
-#canvas2 {
-    filter: saturate(0.15) brightness(0.88) !important;
-}
-
-/* Overlay the theme's page background behind the canvas particles
-   so the animated background matches the current theme colors.     */
+   The canvas background is drawn in JS using hardcoded cyan-blue
+   particles.  We tint them toward the theme's page background with
+   a mix-blend-mode overlay so the constellation effect is preserved
+   while the overall hue follows the active theme.                  */
 #canvas-login,
 #canvas2 {
     position: fixed !important;
@@ -3691,22 +3685,45 @@ body.dz-light .log-scroll-indicator {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: -1;
+    z-index: 0;
+    filter: saturate(0.2) brightness(0.85) !important;
 }
 
-/* Use the glass-container's parent as the themed backdrop */
+/* Colored overlay that tints the canvas to match the theme.
+   Sits between the canvas (z-index 0) and the content (z-index 2).
+   The 0.82 opacity lets the particle animation bleed through.
+   Only applies on pages with the canvas (about / login).          */
+#aboutcontent .glass-container::before,
+#logincontent .glass-container::before,
+#login .glass-container::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--dz-bg);
+    opacity: 0.82;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Glass container is the full-page wrapper — keep it transparent
+   so the canvas + tinted overlay show through behind the card.    */
 .glass-container {
-    background: var(--dz-bg) !important;
+    background: transparent !important;
+    position: relative;
+    z-index: 2;
 }
 
-/* About page container — use theme background */
+/* About page container */
 #aboutcontent {
-    background: var(--dz-bg) !important;
+    background: transparent !important;
     color: var(--dz-text) !important;
 }
 
     #aboutcontent .glass-container {
-        background: var(--dz-bg) !important;
+        background: transparent !important;
     }
 
 /* About page text */
@@ -3738,16 +3755,16 @@ body.dz-light .log-scroll-indicator {
         color: var(--dz-text) !important;
     }
 
-/* Login page — theme background and text */
+/* Login page — transparent so canvas shows through */
 #logincontent,
 #login {
-    background: var(--dz-bg) !important;
+    background: transparent !important;
     color: var(--dz-text) !important;
 }
 
     #logincontent .glass-container,
     #login .glass-container {
-        background: var(--dz-bg) !important;
+        background: transparent !important;
     }
 
     #logincontent h1,
@@ -5732,8 +5749,15 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
 /* Canvas background — lighten for light mode */
 body.dz-light #canvas-login,
 body.dz-light #canvas2 {
-    filter: saturate(0.1) brightness(1.6) contrast(0.7) !important;
-    opacity: 0.35;
+    filter: saturate(0.1) brightness(1.8) contrast(0.6) !important;
+    opacity: 0.5;
+}
+
+/* Light mode overlay — higher opacity for lighter background */
+body.dz-light #aboutcontent .glass-container::before,
+body.dz-light #logincontent .glass-container::before,
+body.dz-light #login .glass-container::before {
+    opacity: 0.88;
 }
 
 /* Glass card in light mode — solid light surface */
@@ -5794,8 +5818,9 @@ body.dz-light .glass-text {
     color: var(--dz-text-soft) !important;
 }
 
-/* Glass container — ensure background is not forced dark */
+/* Glass container — keep transparent so canvas shows through */
 body.dz-light .glass-container {
+    background: transparent !important;
     color: var(--dz-text);
 }
 
