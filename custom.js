@@ -2898,7 +2898,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Build the settings panel HTML ─────────────────────────── */
 
-    function buildPanel() {
+    function buildPanel(opts) {
+        opts = opts || {};
         var s = _settings || DEFAULTS;
 
         function toggle(key, label, desc) {
@@ -2980,11 +2981,11 @@ document.addEventListener('DOMContentLoaded', function () {
             '<i class="fa-solid fa-rotate-left"></i> Reset</button></div>' +
 
             '<div class="ng-presets-section" id="ngPresetsSection">' +
-            '<button class="ng-presets-toggle" id="ngPresetsToggle" type="button">' +
+            '<button class="ng-presets-toggle' + (opts.presetsOpen ? ' ng-presets-toggle--open' : '') + '" id="ngPresetsToggle" type="button">' +
             '<div class="ng-presets-toggle-left"><i class="fa-solid fa-swatchbook"></i> Theme Presets</div>' +
             '<i class="fa-solid fa-chevron-down ng-presets-chevron"></i>' +
             '</button>' +
-            '<div class="ng-presets-body" id="ngPresetsBody" style="display:none;">' +
+            '<div class="ng-presets-body" id="ngPresetsBody"' + (opts.presetsOpen ? '' : ' style="display:none;"') + '>' +
             '<div class="ng-presets-grid" id="ngPresetsGrid">' +
             '<div class="ng-preset-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading presets…</div>' +
             '</div></div></div>' +
@@ -3177,19 +3178,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // Re-render the settings panel to reflect new colors
         var wrap = document.getElementById('ng-theme-settings-wrap');
         if (wrap) {
-            // Remember whether the presets panel was open before re-render
+            // Check whether the presets panel was open before re-render
             var presetsBody = wrap.querySelector('#ngPresetsBody');
             var presetsWereOpen = presetsBody && presetsBody.style.display !== 'none';
-            wrap.innerHTML = buildPanel();
+            wrap.innerHTML = buildPanel({ presetsOpen: presetsWereOpen });
             bindEvents(wrap);
             loadPresets(wrap);
-            // Restore presets panel open state
-            if (presetsWereOpen) {
-                var newBody = wrap.querySelector('#ngPresetsBody');
-                var newToggle = wrap.querySelector('#ngPresetsToggle');
-                if (newBody) newBody.style.display = '';
-                if (newToggle) newToggle.classList.add('ng-presets-toggle--open');
-            }
         }
     }
 
