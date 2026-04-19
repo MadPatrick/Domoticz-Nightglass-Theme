@@ -3289,8 +3289,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var applyLi  = applyBtn ? applyBtn.closest('li') : null;
         var backupLi = Array.from(subTabs.querySelectorAll('li')).find(function (tab) {
             var link = tab.querySelector('a');
-            var label = link ? link.textContent.replace(/\s+/g, ' ').trim().toLowerCase() : '';
-            return /^backup\s*\/\s*(herstel|restore)$/.test(label);
+            var label = link ? link.textContent.replace(/\s+/g, '').toLowerCase() : '';
+            return label === 'backup/herstel' || label === 'backup/restore';
         });
         if (applyLi) {
             applyLi.classList.add('ng-apply-li');
