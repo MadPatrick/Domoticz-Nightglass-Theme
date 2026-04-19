@@ -3289,7 +3289,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var backupLi = Array.prototype.find.call(subTabs.querySelectorAll('li'), function (tab) {
             var link = tab.querySelector('a');
             var label = link ? link.textContent.replace(/\s+/g, ' ').trim().toLowerCase() : '';
-            return label === 'backup/herstel' || label === 'backup / herstel' || label === 'backup/restore';
+            return /^backup\s*\/\s*(herstel|restore)$/.test(label);
         });
         if (applyLi) {
             applyLi.classList.add('ng-apply-li');
