@@ -7081,6 +7081,19 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
             opacity: 0.85;
         }
 
+        /* Inline icons inside page headers (e.g. Security info link) */
+        #settingscontent .page-header-small h1 i,
+        #settingscontent .page-header-small h1 .fa-regular,
+        #settingscontent .page-header-small h1 .fa-solid {
+            font-size: 0.85rem !important;
+            vertical-align: middle;
+        }
+
+        #settingscontent .page-header-small h1 a.norm-link {
+            font-size: 0.85rem;
+            line-height: 1;
+        }
+
 /* Section-specific icons via tab context */
 #tabsystem .page-header-small h1::before { content: "\f013"; }
 #tablog .page-header-small h1::before { content: "\f1c0"; }
@@ -7116,7 +7129,10 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
 
 #settingscontent .row-fluid > .span6 > h2,
 #settingscontent .row-fluid > .span4 > h2,
-#settingscontent .row-fluid > .span12 > h2 {
+#settingscontent .row-fluid > .span12 > h2,
+#settingscontent .row-fluid > .span6 > div > h2,
+#settingscontent .row-fluid > .span4 > div > h2,
+#settingscontent .row-fluid > .span12 > div > h2 {
     font-size: 0.78rem !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
@@ -7160,8 +7176,8 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
         text-align: right;
     }
 
-    /* Input cells — allow content to fill available space */
-    #settingscontent table.display td:not([align="right"]) {
+    /* Input cells — only the last td in each row expands to fill space */
+    #settingscontent table.display td:last-child {
         width: 100% !important;
     }
 
