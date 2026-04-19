@@ -3177,9 +3177,19 @@ document.addEventListener('DOMContentLoaded', function () {
         // Re-render the settings panel to reflect new colors
         var wrap = document.getElementById('ng-theme-settings-wrap');
         if (wrap) {
+            // Remember whether the presets panel was open before re-render
+            var presetsBody = wrap.querySelector('#ngPresetsBody');
+            var presetsWereOpen = presetsBody && presetsBody.style.display !== 'none';
             wrap.innerHTML = buildPanel();
             bindEvents(wrap);
             loadPresets(wrap);
+            // Restore presets panel open state
+            if (presetsWereOpen) {
+                var newBody = wrap.querySelector('#ngPresetsBody');
+                var newToggle = wrap.querySelector('#ngPresetsToggle');
+                if (newBody) newBody.style.display = '';
+                if (newToggle) newToggle.classList.add('ng-presets-toggle--open');
+            }
         }
     }
 
