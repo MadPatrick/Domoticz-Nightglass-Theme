@@ -5528,6 +5528,11 @@ div.item.itemBlock:hover .dz-sparkline-wrap,
     animation: dzUpdateSpin 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+/* Hide Domoticz native round-progress element */
+#divprogress round-progress {
+    display: none !important;
+}
+
 /* Progress ring */
 .update-progress-ring {
     position: relative;

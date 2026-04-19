@@ -1819,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', function () {
         /* ── 2. Replace canvas progress with SVG ring ───────────── */
         var divProg = document.getElementById('divprogress');
         if (divProg) {
-            var canvas = divProg.querySelector('canvas');
+            var canvas = divProg.querySelector('canvas') || divProg.querySelector('round-progress');
             if (canvas) {
                 var ringDiv = document.createElement('div');
                 ringDiv.className = 'update-progress-ring';
