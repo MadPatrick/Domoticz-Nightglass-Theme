@@ -560,18 +560,38 @@ if (document.readyState === 'loading') {
 
     /* -- Action-button detector ------------------------------------- */
     /* Returns true when the <img> is an action button (not a toggleable
-       state icon).  Action buttons live inside popups/dialogs or in the
-       2nd / 3rd icon columns of double/triple-icon rows (scenes, groups,
-       blinds).  These should never get the optimistic click-toggle.     */
+       state icon).  Action buttons live inside popups/dialogs, in
+       scene/group/blind multi-icon rows, or in any non-switch context.
+       Only single-icon switch devices get the optimistic click-toggle. */
 
     function isActionButton(img) {
         /* Inside a popup / dialog overlay */
         if (img.closest && img.closest('#rgbw_popup, #rfy_popup, #setpoint_popup')) return true;
-        /* 2nd / 3rd icon cell in scene/group/blind rows (td#img2, td#img3) */
+
         var td = img.parentElement;
         if (td && td.tagName === 'TD') {
             var id = td.getAttribute('id');
+            /* 2nd / 3rd icon cell — always an action button */
             if (id === 'img2' || id === 'img3') return true;
+
+            /* Scene/group/blind cards use multi-icon table layouts
+               (itemtabledoubleicon, itemtabletrippleicon).  ALL icons
+               in these rows are action buttons, not toggleable state
+               indicators — only single-icon switch cards should toggle. */
+            var tr = td.closest('tr');
+            if (tr && (id === 'img' || id === 'img1')) {
+                /* If the row has sibling img2/img3 cells, this is a
+                   multi-icon (scene/group/blind) layout */
+                if (tr.querySelector('td#img2') || tr.querySelector('td#img3')) return true;
+            }
+
+            /* Also check the table id directly for double/triple icon tables */
+            var tbl = td.closest('table');
+            if (tbl) {
+                var tblId = tbl.getAttribute('id') || '';
+                if (tblId.indexOf('doubleicon') !== -1 ||
+                    tblId.indexOf('trippleicon') !== -1) return true;
+            }
         }
         return false;
     }
@@ -861,6 +881,11 @@ if (document.readyState === 'loading') {
        in replaceIcons once the burst runs and finds the new <img>.     */
     function cleanupOrphan(node) {
         if (node.nodeType !== 1) return;
+        /* Don't clean up nodes that are still connected to the document —
+           DataTables temporarily detaches rows during pagination/redraw
+           and re-attaches them shortly after. Cleaning up too eagerly
+           causes icons to disappear on those rows. */
+        if (node.isConnected) return;
         if (node.tagName === 'IMG') {
             iconMap.delete(node);
         }

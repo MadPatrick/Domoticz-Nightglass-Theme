@@ -2088,10 +2088,13 @@ body table[id^="itemtable"] tr td.options {
             border-color: var(--dz-accent) !important;
         }
 
-        .btn.btn-default.active {
-            background: rgba(var(--dz-accent-rgb), 0.18) !important;
+        .btn.btn-default.active,
+        .btn.btn-default.active:hover,
+        .btn.btn-default.active:focus {
+            background: var(--dz-accent) !important;
             border-color: var(--dz-accent) !important;
             color: #fff !important;
+            box-shadow: none !important;
         }
 
 /* General selector-switch active button — covers all widget types (scene, device, etc.) */
