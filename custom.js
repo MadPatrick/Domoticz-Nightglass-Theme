@@ -547,7 +547,7 @@ if (document.readyState === 'loading') {
 
     /* -- Alert level icons (Alert48_0 .. Alert48_4) --------------- */
     var ALERT_RE = /images\/Alert48_(\d)\.png/i;
-    var ALERT_COLORS = ['#4caf7d', '#f0a832', '#ff7043', '#e05555', '#e05555'];
+    var ALERT_COLORS = ['#4caf7d', '#f5d020', '#f0a832', '#ff7043', '#e05555'];
 
     /* -- Wind direction rotation map ------------------------------ */
     /* fa-arrow-up points North at 0�. Rotate clockwise for each dir. */
@@ -1194,6 +1194,19 @@ if (document.readyState === 'loading') {
             var bigtext = tr.querySelector('td#bigtext');
             var status  = tr.querySelector('td#status');
             if (!bigtext || !status) continue;
+
+            /* Mark Alert-type device cards for styling purposes.
+               Domoticz Alert devices (e.g. connection indicators) have their
+               status text promoted to bigtext below; giving the parent block
+               a CSS class lets us reduce the hero font-size while still
+               keeping the multi-line text readable. */
+            var typeTd = tr.querySelector('td#type');
+            if (typeTd && /\bAlert\b/i.test(typeTd.textContent || '')) {
+                var itemBlock = tr.closest('.itemBlock');
+                if (itemBlock && !itemBlock.classList.contains('dz-alert-device')) {
+                    itemBlock.classList.add('dz-alert-device');
+                }
+            }
 
             var btText = (bigtext.textContent || '').replace(/\s+/g, ' ').trim();
             var stText = (status.textContent  || '').replace(/\s+/g, ' ').trim();

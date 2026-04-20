@@ -2009,6 +2009,22 @@ body table[id^="itemtable"] tr td.options {
 /*    the hero-value style. The JS moves the full text into #status  */
 /*    as a .dz-text-msg div. The bigtext shows a short preview.     */
 
+/* ── 6n. Alert device cards (.dz-alert-device) ────────────────── */
+/*    "General, Alert" devices (e.g. plugin connection indicators)  */
+/*    have multi-line status text promoted to bigtext by JS.        */
+/*    Override the hero font so it reads at a comfortable size and  */
+/*    newline characters (\n from sValue) are rendered as breaks.   */
+
+.dz-alert-device table[id^="itemtable"] tr td#bigtext {
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    white-space: pre-line !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    line-height: 1.55;
+    color: var(--dz-text-soft) !important;
+}
+
 .dz-text-device table[id^="itemtable"] tr td#bigtext {
     font-size: 0.85rem !important;
     font-weight: 600 !important;
