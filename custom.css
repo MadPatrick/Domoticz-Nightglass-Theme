@@ -642,6 +642,21 @@ i.dz-fa-icon {
     transition: opacity 0.15s, color 0.15s;
 }
 
+/* Device list action buttons (Log, Edit, etc.) — ensure icon visibility */
+table.dataTable a.btn-icon > i.dz-fa-icon,
+table.dataTable a[href*="Log"] > i.dz-fa-icon,
+table.dataTable a[href*="Edit"] > i.dz-fa-icon {
+    color: var(--dz-text-soft);
+    opacity: 0.9;
+}
+
+    table.dataTable a.btn-icon:hover > i.dz-fa-icon,
+    table.dataTable a[href*="Log"]:hover > i.dz-fa-icon,
+    table.dataTable a[href*="Edit"]:hover > i.dz-fa-icon {
+        color: var(--dz-accent);
+        opacity: 1;
+    }
+
 /* Trend arrows (tiny inline in bigtext / status) */
 i.dz-fa-trend {
     font-size: 0.75rem;

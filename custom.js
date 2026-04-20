@@ -736,6 +736,16 @@ if (document.readyState === 'loading') {
                     this.classList.add('dz-fav-on', 'fa-solid');
                 }
             });
+            /* Hide the sibling favorite image (Domoticz keeps both
+               favorite.png and nofavorite.png side by side, toggling
+               visibility). Mark the other one as replaced to prevent
+               a duplicate FA star from being created. */
+            var siblings = img.parentNode ? img.parentNode.querySelectorAll('img[src*="favorite"]') : [];
+            for (var si = 0; si < siblings.length; si++) {
+                if (siblings[si] !== img && !siblings[si].classList.contains('dz-icon-replaced')) {
+                    siblings[si].classList.add('dz-icon-replaced');
+                }
+            }
         } else if (resolved.type === 'wind') {
             icon.className = resolved.cls;
             if (resolved.color) icon.style.color = resolved.color;
