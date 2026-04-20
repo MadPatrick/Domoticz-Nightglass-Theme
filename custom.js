@@ -1868,8 +1868,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 ringDiv.id = 'dzProgressRing';
                 ringDiv.innerHTML =
                     '<svg viewBox="0 0 160 160" width="160" height="160" xmlns="http://www.w3.org/2000/svg">' +
-                    '<circle class="ring-track" cx="80" cy="80" r="70"/>' +
-                    '<circle class="ring-fill" cx="80" cy="80" r="70" stroke-dasharray="439.82" stroke-dashoffset="439.82"/>' +
+                    '<circle class="ring-track" cx="80" cy="80" r="70" fill="none" stroke-width="8"/>' +
+                    '<circle class="ring-fill" cx="80" cy="80" r="70" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="439.82" stroke-dashoffset="439.82"/>' +
                     '</svg>' +
                     '<span class="ring-label">0 %</span>';
                 canvas.parentNode.replaceChild(ringDiv, canvas);
@@ -2370,6 +2370,7 @@ document.addEventListener('DOMContentLoaded', function () {
         smoothScrolling:    true,
         showLastUpdate:     false,
         uppercaseNames:     true,
+        iconSize:           '100',
         enableIcons:        true,
         enableAppearance:   true,
         enableEffects:      true,
@@ -2897,6 +2898,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var pct = parseInt(_settings.fontSize, 10) || 100;
         root.style.fontSize = pct === 100 ? '' : (pct + '%');
 
+        // Icon size
+        var iconPct = parseInt(_settings.iconSize, 10) || 100;
+        root.style.setProperty('--ng-icon-scale', iconPct === 100 ? '1' : (iconPct / 100));
+
         // Section-level master toggles
         // When Icons section is disabled, revert all icon replacements
         var iconsDisabledStyle = document.getElementById('dz-ng-icons-disabled');
@@ -3057,6 +3062,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 { value: 'light', label: '☀️ Light' }
             ], 'Used when the toggle is hidden') +
             slider('fontSize', 'Base Font Size', 80, 130, 5, '%', 'Scale the entire interface') +
+            slider('iconSize', 'Device Icon Size', 60, 150, 5, '%', 'Scale device icons on cards') +
             toggle('showLastUpdate', 'Show Last Update', 'Show the formatted timestamp footer on device cards') +
             toggle('uppercaseNames', 'Uppercase Device Names', 'Force device names to UPPERCASE on cards') +
             '</div>' +
