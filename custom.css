@@ -4915,7 +4915,31 @@ table.mobileitem,
     background: transparent;
 }
 
-/* Floorplan status indicator text — improve contrast */
+/* Floorplan status indicator text — improve contrast on dark backgrounds.
+   Domoticz renders device tiles as SVG <g class="DeviceTile"> groups with
+   <text> elements that default to fill:black — invisible on dark themes.
+   The header <rect> uses var(--dz-status-normal) which is also dark.       */
+
+/* SVG text inside device tiles: force light fill color */
+#floorplancontent .DeviceTile text,
+#floorplancontent g[class*="Tile"] text {
+    fill: var(--dz-text) !important;
+}
+
+/* Header rect background — make it semi-transparent so the text pops */
+#floorplancontent .DeviceTile rect.header,
+#floorplancontent g[class*="Tile"] rect.header {
+    fill: var(--dz-surface) !important;
+    opacity: 0.85;
+}
+
+/* Shadow rect behind the header — darken for depth */
+#floorplancontent .DeviceTile > rect:first-child,
+#floorplancontent g[class*="Tile"] > rect:first-child {
+    fill: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* HTML-based overlays (non-SVG floorplan elements) */
 #floorplancontent .floorplan-text,
 #floorplancontent div[style*="color"],
 #floorplancontent span[style*="color"],
