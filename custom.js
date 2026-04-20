@@ -700,7 +700,7 @@ if (document.readyState === 'loading') {
             img.classList.contains('dz-icon-skipped'))  return false;
 
         /* Skip images inside icon-picker dropdowns (Edit Device dialog) */
-        if (img.classList.contains('dd-option-image') || img.closest('.dd-options, .dd-select')) {
+        if (img.classList.contains('dd-option-image') || img.closest('.dd-options, .dd-select, .iconlist')) {
             img.classList.add('dz-icon-skipped');
             return false;
         }

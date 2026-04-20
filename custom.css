@@ -611,6 +611,13 @@ img[src^="images/"]:not(.dd-option-image) {
     pointer-events: none !important;
 }
 
+    /* Restore visibility for icon selector/picker images */
+    .iconlist img[src^="images/"],
+    .iconlistitem img[src^="images/"] {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
     img[src^="images/"].dz-icon-skipped {
         opacity: 1 !important;
         pointer-events: auto !important;
