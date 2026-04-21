@@ -8165,6 +8165,155 @@ a[back-button].btnstyle3 {
     to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Device detail section headers (h3 panels) ───────────────── */
+/* Matches "General settings", "Sub/Slave Devices", etc. —
+   the same styled panel look as the Nightglass settings sections. */
+
+.container.js-view > .page-header-small:not(.page-header-with-button) {
+    border-bottom: none !important;
+    margin-bottom: 16px;
+    margin-top: 28px;
+}
+
+    .container.js-view > .page-header-small:not(.page-header-with-button):first-of-type {
+        margin-top: 0;
+    }
+
+    .container.js-view > .page-header-small:not(.page-header-with-button) h3 {
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        color: var(--dz-text) !important;
+        margin: 0;
+        padding: 14px 20px 12px;
+        background: var(--dz-surface-2);
+        border: 1px solid var(--dz-border);
+        border-radius: 12px 12px 0 0;
+    }
+
+/* ── Device detail form containers ───────────────────────────── */
+/* The .page-content-container and naked tables that follow h3 panels */
+
+.container.js-view > .page-content-container {
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+}
+
+/* Form tables inside detail pages (table.table-details, #paramstable) */
+.container.js-view table.table-details,
+.container.js-view table#paramstable {
+    width: 100%;
+}
+
+    .container.js-view table.table-details td,
+    .container.js-view table#paramstable td {
+        padding: 8px 12px !important;
+        color: var(--dz-text) !important;
+        vertical-align: middle;
+    }
+
+    .container.js-view table.table-details label,
+    .container.js-view table#paramstable label {
+        color: var(--dz-text-soft) !important;
+        font-weight: 600;
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .container.js-view table.table-details input[type="text"],
+    .container.js-view table.table-details textarea,
+    .container.js-view table#paramstable input[type="text"],
+    .container.js-view table#paramstable textarea {
+        background: var(--dz-input-bg) !important;
+        color: var(--dz-input-text) !important;
+        border: 1px solid var(--dz-input-border) !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
+        font-size: 0.85rem;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .container.js-view table.table-details select,
+    .container.js-view table#paramstable select {
+        background: var(--dz-input-bg) !important;
+        color: var(--dz-input-text) !important;
+        border: 1px solid var(--dz-input-border) !important;
+        border-radius: 8px !important;
+        padding: 6px 10px !important;
+        font-size: 0.85rem;
+    }
+
+/* Sub-device editor and similar naked sections after h3 panels */
+.container.js-view > device-subdevices-editor,
+.container.js-view > .dataTables_wrapper {
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: block;
+}
+
+/* Delete / Clear button rows inside detail editors */
+.container.js-view table#delclr {
+    margin-top: 12px;
+}
+
+/* Detail page container: constrain width + center */
+.container.js-view:not(.bannercontent) {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 12px;
+}
+
+/* Mobile: make form fields full width */
+@media (max-width: 767px) {
+    .container.js-view table.table-details input[type="text"],
+    .container.js-view table.table-details textarea,
+    .container.js-view table#paramstable input[type="text"],
+    .container.js-view table#paramstable textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .container.js-view table.table-details select,
+    .container.js-view table#paramstable select {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .container.js-view table.table-details td,
+    .container.js-view table#paramstable td {
+        display: block !important;
+        width: 100% !important;
+        padding: 4px 8px !important;
+    }
+
+    .container.js-view table.table-details tr,
+    .container.js-view table#paramstable tr {
+        display: block !important;
+        margin-bottom: 8px;
+    }
+
+    .container.js-view > .page-content-container,
+    .container.js-view > device-subdevices-editor {
+        padding: 12px 14px;
+    }
+
+    .container.js-view > .page-header-small:not(.page-header-with-button) h3 {
+        font-size: 0.75rem !important;
+        padding: 12px 14px 10px;
+    }
+}
+
 /* ── Light mode overrides for device detail pages ────────────── */
 
 body.dz-light .entity-log-table tbody tr.odd td {
