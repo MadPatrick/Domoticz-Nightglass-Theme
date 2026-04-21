@@ -797,12 +797,15 @@ if (document.readyState === 'loading') {
             });
             /* Hide the sibling favorite image (Domoticz keeps both
                favorite.png and nofavorite.png side by side, toggling
-               visibility). Mark the other one as replaced to prevent
-               a duplicate FA star from being created. */
+               visibility). Mark the other one as replaced and map it
+               to the same FA <i> so src-change updates and recovery
+               logic don't create a duplicate star. */
             var siblings = img.parentNode ? img.parentNode.querySelectorAll('img[src*="favorite"]') : [];
             for (var si = 0; si < siblings.length; si++) {
                 if (siblings[si] !== img && !siblings[si].classList.contains('dz-icon-replaced')) {
                     siblings[si].classList.add('dz-icon-replaced');
+                    siblings[si].setAttribute('data-dz-src', siblings[si].getAttribute('src') || '');
+                    iconMap.set(siblings[si], icon);
                 }
             }
         } else if (resolved.type === 'wind') {
@@ -2553,8 +2556,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 devIconStyle.id = 'dz-ng-devicon-style';
                 devIconStyle.textContent =
                     'i.dz-fa-device, i.dz-wind { display: none !important; }' +
-                    'body table[id^="itemtable"] img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
-                    'body table[id^="itemtable"] img[src*="48"] { opacity: 1 !important; pointer-events: auto !important; }';
+                    'body table[id^="itemtable"] img.dz-icon-replaced:not([data-dz-src*="favorite"]) { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
+                    'body table[id^="itemtable"] img[src*="48"]:not([src*="favorite"]) { opacity: 1 !important; pointer-events: auto !important; }';
                 document.head.appendChild(devIconStyle);
             }
         } else if (devIconStyle) {
@@ -2960,7 +2963,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 iconsDisabledStyle.id = 'dz-ng-icons-disabled';
                 iconsDisabledStyle.textContent =
                     'i.dz-fa-device, i.dz-fa-icon, i.dz-fa-fav, i.dz-fa-trend, i.dz-fa-action, i.dz-fa-nav, i.dz-wind { display: none !important; }' +
-                    'img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }';
+                    'img.dz-icon-replaced { display: inline !important; opacity: 1 !important; pointer-events: auto !important; }' +
+                    'img.dz-icon-replaced[data-dz-src*="favorite"] ~ img.dz-icon-replaced[data-dz-src*="favorite"] { display: none !important; }';
                 document.head.appendChild(iconsDisabledStyle);
             }
         } else if (iconsDisabledStyle) { iconsDisabledStyle.remove(); }
