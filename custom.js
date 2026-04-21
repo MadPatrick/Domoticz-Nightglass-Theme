@@ -224,16 +224,12 @@ if (document.readyState === 'loading') {
         var a = document.getElementById('dz-theme-style-btn');
         if (!a) return;
         var icon = a.querySelector('i');
-        if (stored === 'auto') {
-            if (icon) icon.className = 'fa-solid fa-circle-half-stroke';
-            a.title = 'Theme: Auto (follows system) — click to switch to dark';
-            a.setAttribute('aria-pressed', 'false');
-            a.setAttribute('aria-label', 'Theme: Auto (follows system)');
-        } else if (stored === 'light') {
+        var isLight = (stored === 'light') || (stored === 'auto' && systemPrefersLight());
+        if (isLight) {
             if (icon) icon.className = 'fa-solid fa-moon';
-            a.title = 'Switch to auto mode';
+            a.title = 'Switch to dark mode';
             a.setAttribute('aria-pressed', 'true');
-            a.setAttribute('aria-label', 'Switch to auto mode');
+            a.setAttribute('aria-label', 'Switch to dark mode');
         } else {
             if (icon) icon.className = 'fa-solid fa-sun';
             a.title = 'Switch to light mode';
@@ -254,8 +250,9 @@ if (document.readyState === 'loading') {
 
     function toggle() {
         var stored = localStorage.getItem(STORAGE_KEY) || 'dark';
-        // Cycle: dark → light → auto → dark
-        var next = stored === 'dark' ? 'light' : stored === 'light' ? 'auto' : 'dark';
+        // Simple two-state toggle: dark ↔ light
+        // Auto mode is only set via the settings panel
+        var next = (stored === 'light') ? 'dark' : 'light';
         localStorage.setItem(STORAGE_KEY, next);
         applyEffective(next);
         updateBtn(next);
