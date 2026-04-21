@@ -7765,16 +7765,99 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
     }
 
         .page-header-with-button h1 {
-            font-size: 1.05rem !important;
-            padding: 16px 18px 12px;
+            font-size: 1rem !important;
+            padding: 14px 16px 12px;
+            word-break: break-word;
         }
 
         .page-header-with-button > div {
             position: static;
             transform: none;
-            justify-content: flex-end;
+            justify-content: center;
             margin-top: 10px;
         }
+
+        .page-header-with-button > div > .btnstyle3 {
+            font-size: 0.78rem !important;
+            padding: 7px 14px !important;
+        }
+
+    /* Detail containers: prevent horizontal overflow */
+    .js-device-logs,
+    .js-device-timers,
+    .js-device-notifications {
+        padding: 0 6px;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Charts: constrain to viewport */
+    .device-log-chart,
+    .device-log-chart_sm,
+    .device-log-chart_md {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    /* DataTables wrapper: horizontal scroll for wide tables */
+    .js-device-logs .dataTables_wrapper,
+    .js-device-timers .dataTables_wrapper,
+    .js-device-notifications .dataTables_wrapper {
+        border-radius: 10px;
+        overflow-x: auto;
+    }
+
+    /* Table cells: tighter padding on mobile */
+    .entity-log-table thead tr th {
+        padding: 8px 10px !important;
+        font-size: 0.68rem !important;
+    }
+
+    .entity-log-table tbody tr td {
+        padding: 8px 10px !important;
+        font-size: 0.78rem !important;
+    }
+
+    /* Toolbar / pagination: wrap for small screens */
+    .js-device-logs .fg-toolbar,
+    .js-device-timers .fg-toolbar,
+    .js-device-notifications .fg-toolbar {
+        padding: 8px 10px !important;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Section headings */
+    .js-device-logs h2,
+    .js-device-timers h2,
+    .js-device-notifications h2 {
+        font-size: 0.75rem !important;
+        margin: 20px 0 8px;
+    }
+
+    /* Clear / action button row */
+    #updelclr {
+        text-align: center;
+    }
+
+        #updelclr .btnstyle3 {
+            font-size: 0.78rem !important;
+            padding: 7px 14px !important;
+        }
+
+    /* Generic non-class page headers */
+    .container:not(.bannercontent) > .page-header-small:not(.page-header-with-button) h1 {
+        font-size: 1rem !important;
+        padding: 14px 16px 12px;
+        word-break: break-word;
+    }
+
+    /* Highcharts containers inside detail pages */
+    [id^="graphcontent"],
+    [id^="chartcontent"] {
+        max-width: 100% !important;
+        overflow-x: auto;
+    }
 }
 
 /* ── Device detail container ─────────────────────────────────── */
