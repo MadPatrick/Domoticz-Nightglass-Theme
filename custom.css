@@ -7738,6 +7738,7 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
         border: 1px solid rgba(var(--dz-accent-rgb), 0.18);
         border-radius: 14px;
         width: 100%;
+        box-sizing: border-box;
     }
 
     .page-header-with-button > div {
@@ -7760,51 +7761,81 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
     }
 
 @media (max-width: 767px) {
+    /* Header: stack title + buttons vertically */
     .page-header-with-button {
-        position: static;
+        display: flex !important;
+        flex-direction: column !important;
+        position: static !important;
     }
 
-        .page-header-with-button h1 {
-            font-size: 1rem !important;
-            padding: 14px 16px 12px;
-            word-break: break-word;
-        }
+    .page-header-with-button h1 {
+        font-size: 1rem !important;
+        padding: 14px 16px 12px !important;
+        word-break: break-word !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
 
-        .page-header-with-button > div {
-            position: static;
-            transform: none;
-            justify-content: center;
-            margin-top: 10px;
-        }
+    .page-header-with-button > div {
+        position: static !important;
+        transform: none !important;
+        justify-content: center !important;
+        margin-top: 10px !important;
+        width: 100% !important;
+    }
 
-        .page-header-with-button > div > .btnstyle3 {
-            font-size: 0.78rem !important;
-            padding: 7px 14px !important;
-        }
+    .page-header-with-button > div > .btnstyle3 {
+        font-size: 0.78rem !important;
+        padding: 7px 14px !important;
+    }
 
     /* Detail containers: prevent horizontal overflow */
     .js-device-logs,
     .js-device-timers,
     .js-device-notifications {
-        padding: 0 6px;
-        max-width: 100%;
-        overflow-x: hidden;
+        padding: 0 6px !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    /* All tables inside detail pages: scrollable */
+    .js-device-logs table,
+    .js-device-timers table,
+    .js-device-notifications table {
+        display: block !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100% !important;
+    }
+
+    /* Keep thead/tbody/tr block-level so the scroll works */
+    .js-device-logs table thead,
+    .js-device-logs table tbody,
+    .js-device-timers table thead,
+    .js-device-timers table tbody,
+    .js-device-notifications table thead,
+    .js-device-notifications table tbody {
+        display: table;
+        width: 100%;
+        table-layout: auto;
     }
 
     /* Charts: constrain to viewport */
     .device-log-chart,
     .device-log-chart_sm,
     .device-log-chart_md {
-        max-width: 100%;
-        overflow-x: auto;
+        max-width: 100% !important;
+        overflow-x: auto !important;
     }
 
     /* DataTables wrapper: horizontal scroll for wide tables */
     .js-device-logs .dataTables_wrapper,
     .js-device-timers .dataTables_wrapper,
     .js-device-notifications .dataTables_wrapper {
-        border-radius: 10px;
-        overflow-x: auto;
+        border-radius: 10px !important;
+        overflow-x: auto !important;
+        max-width: 100% !important;
     }
 
     /* Table cells: tighter padding on mobile */
@@ -7823,7 +7854,8 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
     .js-device-timers .fg-toolbar,
     .js-device-notifications .fg-toolbar {
         padding: 8px 10px !important;
-        flex-wrap: wrap;
+        display: flex !important;
+        flex-wrap: wrap !important;
         gap: 6px;
     }
 
@@ -7840,10 +7872,10 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
         text-align: center;
     }
 
-        #updelclr .btnstyle3 {
-            font-size: 0.78rem !important;
-            padding: 7px 14px !important;
-        }
+    #updelclr .btnstyle3 {
+        font-size: 0.78rem !important;
+        padding: 7px 14px !important;
+    }
 
     /* Generic non-class page headers */
     .container:not(.bannercontent) > .page-header-small:not(.page-header-with-button) h1 {
@@ -7856,7 +7888,15 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
     [id^="graphcontent"],
     [id^="chartcontent"] {
         max-width: 100% !important;
-        overflow-x: auto;
+        overflow-x: auto !important;
+    }
+
+    /* Generic wide content containers on detail pages */
+    .page-header-with-button ~ div,
+    .page-header-small ~ div {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        box-sizing: border-box !important;
     }
 }
 
