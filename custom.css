@@ -7750,6 +7750,33 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
         align-items: center;
     }
 
+    .page-header-with-button > div > .btnstyle3 {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem !important;
+        padding: 8px 16px !important;
+        white-space: nowrap;
+    }
+
+@media (max-width: 767px) {
+    .page-header-with-button {
+        position: static;
+    }
+
+        .page-header-with-button h1 {
+            font-size: 1.05rem !important;
+            padding: 16px 18px 12px;
+        }
+
+        .page-header-with-button > div {
+            position: static;
+            transform: none;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+}
+
 /* ── Device detail container ─────────────────────────────────── */
 
 .js-device-logs,
