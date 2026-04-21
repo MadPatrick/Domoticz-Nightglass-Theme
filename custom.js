@@ -1074,6 +1074,18 @@ if (document.readyState === 'loading') {
     var BURST_DELAYS = [10, 80, 300, 800, 2000];
 
     function scheduleQuickReplace(node) {
+        /* Try synchronous replacement first — the node is already in the DOM
+           when the MutationObserver fires, so this usually succeeds.          */
+        try {
+            if (!node || node.nodeType !== 1) return;
+            if (node.tagName === 'IMG') {
+                if (node.parentNode) processImg(node);
+                return;
+            }
+            processNewImages(node);
+        } catch (_) { /* ignore — fallback below */ }
+        /* Also schedule an async pass as safety net in case Angular hasn't
+           finished compiling the node's children yet.                       */
         setTimeout(function () {
             if (!node || node.nodeType !== 1) return;
             if (node.tagName === 'IMG') {
@@ -1082,6 +1094,20 @@ if (document.readyState === 'loading') {
             }
             replaceIcons(node);
         }, 0);
+    }
+
+    /* Non-cancellable safety-net timer — ensures at least one full
+       replacement pass runs even when scheduleBurst keeps debouncing
+       due to rapid mutations (e.g. device data refresh via websocket). */
+    var _safetyTimer = null;
+    function scheduleSafetyPass() {
+        if (_safetyTimer) return;
+        _safetyTimer = setTimeout(function () {
+            _safetyTimer = null;
+            replaceIcons(document.body);
+            var extras = window._dzExtraProcessors;
+            if (extras) for (var p = 0; p < extras.length; p++) extras[p]();
+        }, 150);
     }
 
     function scheduleBurst() {
@@ -1098,6 +1124,8 @@ if (document.readyState === 'loading') {
                 if (extras) for (var p = 0; p < extras.length; p++) extras[p]();
             }, BURST_DELAYS[d]));
         }
+        /* Always schedule a non-cancellable safety pass */
+        scheduleSafetyPass();
     }
 
     var iconObserver = new MutationObserver(function (mutations) {
@@ -1187,6 +1215,13 @@ if (document.readyState === 'loading') {
         $rootScope.$on('$viewContentLoaded', function () {
             scheduleBurst();
         });
+        /* Watch for digest cycles — when device data refreshes via
+           websocket/polling, Angular re-renders table rows during
+           $digest. Schedule a non-cancellable safety pass after each
+           digest so icons are re-applied even during rapid updates.  */
+        $rootScope.$watch(function () {
+            scheduleSafetyPass();
+        });
     }
 
     if (document.readyState === 'loading') {
@@ -1201,17 +1236,24 @@ if (document.readyState === 'loading') {
        page change, sort, or filter — DataTables pagination often just
        toggles CSS display on existing rows rather than inserting new
        DOM nodes, so the MutationObserver alone won't catch it.        */
-    if (window.$) {
+    function hookDataTables() {
+        if (!window.$) return;
         $(document).on('draw.dt', function () {
             scheduleBurst();
         });
+        /* Also hook into row invalidation / AJAX reload — these fire when
+           device data refreshes in the background and may not always
+           trigger a full draw.dt event.                                   */
+        $(document).on('xhr.dt', function () {
+            scheduleSafetyPass();
+        });
+    }
+
+    if (window.$) {
+        hookDataTables();
     } else {
         document.addEventListener('DOMContentLoaded', function () {
-            if (window.$) {
-                $(document).on('draw.dt', function () {
-                    scheduleBurst();
-                });
-            }
+            hookDataTables();
         });
     }
 
