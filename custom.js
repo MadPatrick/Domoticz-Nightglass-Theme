@@ -192,12 +192,26 @@ if (document.readyState === 'loading') {
 
     var STORAGE_KEY = 'dz-theme-style';
     var LIGHT_CLASS = 'dz-light';
+    var _mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+
+    function systemPrefersLight() {
+        return _mql ? _mql.matches : false;
+    }
+
+    function resolveTheme(stored) {
+        if (stored === 'auto') return systemPrefersLight() ? 'light' : 'dark';
+        return stored || 'dark';
+    }
 
     /* Apply saved preference as early as possible — but body may be null if
        the script runs in <head>, so guard with a readyState check. */
     function applyStoredTheme() {
-        if (localStorage.getItem(STORAGE_KEY) === 'light') {
+        var stored = localStorage.getItem(STORAGE_KEY) || 'dark';
+        var effective = resolveTheme(stored);
+        if (effective === 'light') {
             document.body.classList.add(LIGHT_CLASS);
+        } else {
+            document.body.classList.remove(LIGHT_CLASS);
         }
     }
     if (document.readyState === 'loading') {
@@ -206,26 +220,52 @@ if (document.readyState === 'loading') {
         applyStoredTheme();
     }
 
-    function updateBtn(light) {
+    function updateBtn(stored) {
         var a = document.getElementById('dz-theme-style-btn');
         if (!a) return;
         var icon = a.querySelector('i');
-        if (icon) icon.className = light ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
-        a.title = light ? 'Switch to dark mode' : 'Switch to light mode';
-        a.setAttribute('aria-pressed', light ? 'true' : 'false');
-        a.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+        var isLight = (stored === 'light') || (stored === 'auto' && systemPrefersLight());
+        if (isLight) {
+            if (icon) icon.className = 'fa-solid fa-moon';
+            a.title = 'Switch to dark mode';
+            a.setAttribute('aria-pressed', 'true');
+            a.setAttribute('aria-label', 'Switch to dark mode');
+        } else {
+            if (icon) icon.className = 'fa-solid fa-sun';
+            a.title = 'Switch to light mode';
+            a.setAttribute('aria-pressed', 'false');
+            a.setAttribute('aria-label', 'Switch to light mode');
+        }
     }
 
-    function toggle() {
-        var nowLight = !document.body.classList.contains(LIGHT_CLASS);
-        if (nowLight) {
+    function applyEffective(stored) {
+        var effective = resolveTheme(stored);
+        if (effective === 'light') {
             document.body.classList.add(LIGHT_CLASS);
         } else {
             document.body.classList.remove(LIGHT_CLASS);
         }
-        localStorage.setItem(STORAGE_KEY, nowLight ? 'light' : 'dark');
-        updateBtn(nowLight);
-        applyHighchartsTheme(!nowLight);
+        applyHighchartsTheme(effective !== 'light');
+    }
+
+    function toggle() {
+        var stored = localStorage.getItem(STORAGE_KEY) || 'dark';
+        // Simple two-state toggle: dark ↔ light
+        // Auto mode is only set via the settings panel
+        var next = (stored === 'light') ? 'dark' : 'light';
+        localStorage.setItem(STORAGE_KEY, next);
+        applyEffective(next);
+        updateBtn(next);
+    }
+
+    /* Listen for OS theme changes when in auto mode */
+    if (_mql && _mql.addEventListener) {
+        _mql.addEventListener('change', function () {
+            var stored = localStorage.getItem(STORAGE_KEY) || 'dark';
+            if (stored === 'auto') {
+                applyEffective('auto');
+            }
+        });
     }
 
     function injectToggle() {
@@ -233,16 +273,12 @@ if (document.readyState === 'loading') {
         var inner = document.querySelector('.navbar-inner');
         if (!inner) return;
 
-        var light = document.body.classList.contains(LIGHT_CLASS);
+        var stored = localStorage.getItem(STORAGE_KEY) || 'dark';
         var a = document.createElement('a');
         a.id = 'dz-theme-style-btn';
         a.href = 'javascript:void(0)';
-        a.title = light ? 'Switch to dark mode' : 'Switch to light mode';
         a.setAttribute('role', 'button');
-        a.setAttribute('aria-pressed', light ? 'true' : 'false');
-        a.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
         var icon = document.createElement('i');
-        icon.className = light ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
         a.appendChild(icon);
         a.addEventListener('click', toggle);
 
@@ -256,6 +292,9 @@ if (document.readyState === 'loading') {
         /* Append to navbar-inner directly; positioned absolutely via CSS
            so it doesn't affect the container's float layout at all. */
         inner.appendChild(nav);
+        /* updateBtn must run after the element is in the DOM,
+           because it uses getElementById to find the button. */
+        updateBtn(stored);
     }
 
     if (document.readyState === 'loading') {
@@ -547,7 +586,7 @@ if (document.readyState === 'loading') {
 
     /* -- Alert level icons (Alert48_0 .. Alert48_4) --------------- */
     var ALERT_RE = /images\/Alert48_(\d)\.png/i;
-    var ALERT_COLORS = ['#4caf7d', '#f0a832', '#ff7043', '#e05555', '#e05555'];
+    var ALERT_COLORS = ['#8a8a8a','#4caf7d', '#f0a832', '#ff7043', '#e05555'];
 
     /* -- Wind direction rotation map ------------------------------ */
     /* fa-arrow-up points North at 0�. Rotate clockwise for each dir. */
@@ -2342,6 +2381,7 @@ document.addEventListener('DOMContentLoaded', function () {
         actionIcons:        true,
         showThemeToggle:    true,
         defaultMode:        'dark',
+        themeMode:          'toggle',
         accentColor:        '#4e9af1',
         dangerColor:        '#e05555',
         warningColor:       '#f0a832',
@@ -2586,21 +2626,30 @@ document.addEventListener('DOMContentLoaded', function () {
             actionIconStyle.remove();
         }
 
-        // Theme toggle visibility
-        var toggleNav = document.getElementById('dz-theme-style-nav');
-        if (toggleNav) {
-            toggleNav.style.display = _settings.showThemeToggle ? '' : 'none';
+        // Theme mode: toggle (manual navbar button), auto, dark, light
+        var themeMode = _settings.themeMode || 'toggle';
+        // Backward compat: if themeMode not set, derive from old keys
+        if (!_settings.themeMode && _settings.showThemeToggle === false) {
+            themeMode = _settings.defaultMode || 'dark';
         }
-        // If toggle hidden, apply the default mode
-        if (!_settings.showThemeToggle) {
+        var toggleNav = document.getElementById('dz-theme-style-nav');
+        if (themeMode === 'toggle') {
+            if (toggleNav) toggleNav.style.display = '';
+        } else {
+            if (toggleNav) toggleNav.style.display = 'none';
+            var wantLight;
+            if (themeMode === 'auto') {
+                wantLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+            } else {
+                wantLight = themeMode === 'light';
+            }
             var isLight = document.body.classList.contains('dz-light');
-            var wantLight = _settings.defaultMode === 'light';
             if (isLight !== wantLight) {
                 if (wantLight) document.body.classList.add('dz-light');
                 else document.body.classList.remove('dz-light');
-                localStorage.setItem('dz-theme-style', wantLight ? 'light' : 'dark');
-                if (typeof applyHighchartsTheme === 'function') applyHighchartsTheme(!wantLight);
             }
+            localStorage.setItem('dz-theme-style', themeMode);
+            if (typeof applyHighchartsTheme === 'function') applyHighchartsTheme(!wantLight);
         }
 
         // Accent colors — apply via a dynamic <style> so both :root and body.dz-light are covered
@@ -3056,11 +3105,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
             '<div class="ng-settings-section">' +
             '<div class="ng-section-header"><i class="fa-solid fa-swatchbook"></i> Appearance</div>' +
-            toggle('showThemeToggle', 'Show Dark/Light Toggle', 'Display the sun/moon toggle button in the navbar') +
-            select('defaultMode', 'Default Mode', [
-                { value: 'dark', label: '🌙 Dark' },
-                { value: 'light', label: '☀️ Light' }
-            ], 'Used when the toggle is hidden') +
+            select('themeMode', 'Theme Mode', [
+                { value: 'toggle', label: '🔀 Manual toggle' },
+                { value: 'auto', label: '🖥️ Auto (follow system)' },
+                { value: 'dark', label: '🌙 Always dark' },
+                { value: 'light', label: '☀️ Always light' }
+            ], 'Manual shows a navbar button to switch; Auto follows your OS preference') +
             slider('fontSize', 'Base Font Size', 80, 130, 5, '%', 'Scale the entire interface') +
             slider('iconSize', 'Device Icon Size', 60, 150, 5, '%', 'Scale device icons on cards') +
             toggle('showLastUpdate', 'Show Last Update', 'Show the formatted timestamp footer on device cards') +
@@ -3729,12 +3779,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (animRow) {
             var row = animRow.closest('.ng-setting-row');
             if (row) row.style.opacity = _settings.deviceIcons ? '1' : '0.4';
-        }
-        // defaultMode only relevant if toggle is hidden
-        var modeRow = container.querySelector('[data-ng-key="defaultMode"]');
-        if (modeRow) {
-            var row = modeRow.closest('.ng-setting-row');
-            if (row) row.style.opacity = _settings.showThemeToggle ? '0.4' : '1';
         }
     }
 
