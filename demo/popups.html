@@ -51,6 +51,19 @@
     /* Highlight which device card the popup belongs to */
     .ng-showcase-item .pop { min-width: 0; }
 
+    /* RGBW demo containers get the same base style as #rgbw_popup in custom.css */
+    #ng-rgbw-demo-a,
+    #ng-rgbw-demo-b {
+      background: var(--dz-surface) !important;
+      border: 1px solid var(--dz-border) !important;
+      color: var(--dz-text) !important;
+      border-radius: 20px !important;
+      padding: 0 20px 20px !important;
+      overflow: hidden !important;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5) !important;
+      width: 300px !important;
+    }
+
   </style>
 </head>
 <body>
@@ -157,13 +170,13 @@
           <div class="ng-showcase-item">
             <div class="ng-showcase-label">RGBW — colour mode</div>
             <!-- Rendered by buildRgbwDemo() below — matches real popup exactly -->
-            <div id="ng-rgbw-demo-a" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all" style="width:300px;padding:0 20px 20px"></div>
+            <div id="ng-rgbw-demo-a" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
             <span class="ng-showcase-hint">canvas HSV wheel — Nightglass replaces jQWCP</span>
           </div>
 
           <div class="ng-showcase-item">
             <div class="ng-showcase-label">RGBW — white temperature mode</div>
-            <div id="ng-rgbw-demo-b" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all" style="width:300px;padding:0 20px 20px"></div>
+            <div id="ng-rgbw-demo-b" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
             <span class="ng-showcase-hint">warm/cool white channel with gradient bar</span>
           </div>
 
