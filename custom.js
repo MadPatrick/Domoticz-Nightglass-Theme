@@ -3721,7 +3721,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Fetch devices from Domoticz
-        fetch('/json.htm?type=devices&used=true&order=Name', { credentials: 'same-origin' })
+        fetch('/json.htm?type=command&param=getdevices&filter=all&used=true&order=Name', { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) { renderDevices(data.result || []); })
             .catch(function () {
