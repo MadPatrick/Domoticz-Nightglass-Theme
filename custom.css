@@ -1483,8 +1483,8 @@ body table#itemtabledoubleicon tr td:first-child + td + td img,
 body table#itemtabletrippleicon tr td:first-child + td + td img,
 body table#itemtablesmalldoubleicon tr td:first-child + td + td img,
 body table#itemtablesmalltrippleicon tr td:first-child + td + td img {
-    width: calc(26px * var(--ng-icon-scale, 1)) !important;
-    height: calc(26px * var(--ng-icon-scale, 1)) !important;
+    width: calc(30px * var(--ng-icon-scale, 1)) !important;
+    height: calc(30px * var(--ng-icon-scale, 1)) !important;
     display: block;
     object-fit: contain;
 }
@@ -1523,8 +1523,8 @@ body table#itemtabledoubleicon tr td:first-child + td + td + td img,
 body table#itemtabletrippleicon tr td:first-child + td + td + td img,
 body table#itemtablesmalldoubleicon tr td:first-child + td + td + td img,
 body table#itemtablesmalltrippleicon tr td:first-child + td + td + td img {
-    width: calc(26px * var(--ng-icon-scale, 1)) !important;
-    height: calc(26px * var(--ng-icon-scale, 1)) !important;
+    width: calc(30px * var(--ng-icon-scale, 1)) !important;
+    height: calc(30px * var(--ng-icon-scale, 1)) !important;
     display: block;
     object-fit: contain;
 }
@@ -1557,8 +1557,8 @@ body table#itemtablesmalltrippleicon tr:hover td:first-child + td + td + td + td
 
 body table#itemtabletrippleicon tr td:first-child + td + td + td + td img,
 body table#itemtablesmalltrippleicon tr td:first-child + td + td + td + td img {
-    width: calc(26px * var(--ng-icon-scale, 1)) !important;
-    height: calc(26px * var(--ng-icon-scale, 1)) !important;
+    width: calc(30px * var(--ng-icon-scale, 1)) !important;
+    height: calc(30px * var(--ng-icon-scale, 1)) !important;
     display: block;
     object-fit: contain;
 }
@@ -1795,20 +1795,16 @@ body table[id^="itemtable"] tr .ui-slider {
 /* ── 6i. Selector buttons → chip / pill style ─────────────────── */
 /*    (Like idea/index.html .filter-btn)                            */
 
-dztemperaturewidget table[id^="itemtablenotype"] tr td#status {
-    margin-bottom: 40px !important;
-}
-
-dztemperaturewidget table[id^="itemtablenotype"] tr td.options {
-    bottom: -10px !important;
-}
-
+dztemperaturewidget table[id^="itemtablenotype"] tr td#status,
 dzweatherwidget table[id^="itemtablenotype"] tr td#status {
-    margin-bottom: 40px !important;
+    margin-bottom: 6px !important;
 }
 
+dztemperaturewidget table[id^="itemtablenotype"] tr td.options,
 dzweatherwidget table[id^="itemtablenotype"] tr td.options {
-    bottom: -10px !important;
+    position: relative !important;
+    bottom: auto !important;
+    margin-top: 4px !important;
 }
 
 
@@ -1849,6 +1845,41 @@ body table[id^="itemtable"] tr td#status .btn-group {
             color: #fff !important;
             border-color: var(--dz-accent) !important;
         }
+
+/* Standalone action buttons in td#status (e.g. smoke detector Reset button) —
+   direct <a> or <input> children that are NOT inside a .btn-group                */
+body table[id^="itemtable"] tr td#status > a.btnstyle,
+body table[id^="itemtable"] tr td#status > a.btnstyle3,
+body table[id^="itemtable"] tr td#status > input[type="button"],
+body table[id^="itemtable"] tr td#status > button {
+    display: inline-block;
+    font-size: 0.72rem !important;
+    padding: 3px 12px !important;
+    border-radius: 20px !important;
+    border: 1px solid var(--dz-border-b) !important;
+    background: var(--dz-surface) !important;
+    background-image: none !important;
+    color: var(--dz-text-muted) !important;
+    font-weight: 500;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    vertical-align: middle;
+    margin-top: 4px;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: all 0.15s;
+}
+
+    body table[id^="itemtable"] tr td#status > a.btnstyle:hover,
+    body table[id^="itemtable"] tr td#status > a.btnstyle3:hover,
+    body table[id^="itemtable"] tr td#status > input[type="button"]:hover,
+    body table[id^="itemtable"] tr td#status > button:hover {
+        background: var(--dz-border) !important;
+        color: var(--dz-text) !important;
+        border-color: var(--dz-accent) !important;
+    }
 
 /* Selector dropdown (SelectorStyle 1) */
 body table[id^="itemtable"] tr td#status .selectorlevels select,
@@ -3165,6 +3196,75 @@ input.ui-widget-content {
 #popup_therm,
 [id^="dialog-"] {
     color: var(--dz-text);
+}
+
+/* ── 9m. Mobile-responsive modal / dialog (#80) ──────────────── */
+@media (max-width: 767px) {
+    .modal-dialog {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 8px auto !important;
+    }
+
+    .modal-body {
+        max-height: 65vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 12px 14px !important;
+    }
+
+    .modal-footer {
+        padding: 10px 14px !important;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Make form tables inside modals stack vertically */
+    .modal table,
+    .modal table tbody,
+    .modal table tr,
+    .modal table td {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .modal table td {
+        padding: 4px 0 !important;
+    }
+
+    .modal table tr {
+        margin-bottom: 10px !important;
+    }
+
+    /* Full-width inputs inside modals */
+    .modal input[type="text"],
+    .modal input[type="number"],
+    .modal input[type="email"],
+    .modal input[type="password"],
+    .modal textarea,
+    .modal select,
+    .ui-dialog input[type="text"],
+    .ui-dialog input[type="number"],
+    .ui-dialog textarea,
+    .ui-dialog select {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* jQuery UI dialogs */
+    .ui-dialog {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        left: 2.5vw !important;
+    }
+
+    .ui-dialog .ui-dialog-content {
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 
@@ -5193,6 +5293,26 @@ body.dashboard div.item.Fan.onn .img1 img {
     body table[id^="itemtable"] tr td:first-child + td {
         font-size: 1.1rem !important;
         white-space: normal;
+    }
+
+    /* Fix #78: options row overlaps activation buttons on mobile.
+       Switch from absolute (desktop) to in-flow positioning.      */
+    body table[id^="itemtable"] tr td.options {
+        position: relative !important;
+        bottom: auto !important;
+        right: auto !important;
+        margin-top: 6px !important;
+    }
+
+    /* Remove the bottom-margin reserved for absolute options */
+    body table[id^="itemtable"] tr td#type {
+        margin-bottom: 4px !important;
+    }
+
+    /* Card footer timestamp: flow in document */
+    .dz-card-footer .dz-time {
+        position: relative !important;
+        right: auto !important;
     }
 }
 
@@ -7893,6 +8013,18 @@ body.dz-light #tabbackuprestore strong[style*="color: #fff"] {
         word-break: break-word;
     }
 
+    /* Fix #79: back button — icon-only on small screens to save space */
+    .page-header-with-button > div > .btnstyle3 .btn-label,
+    .page-header-with-button > div > a[back-button] .btn-label {
+        display: none !important;
+    }
+
+    /* Prevent detail page container from causing horizontal overflow */
+    .container.js-view:not(.bannercontent) {
+        padding: 0 8px !important;
+        overflow-x: hidden;
+    }
+
     /* Highcharts containers inside detail pages */
     [id^="graphcontent"],
     [id^="chartcontent"] {
@@ -8180,6 +8312,7 @@ a[back-button].btnstyle3 {
 
 .container.js-view > .page-header-small:not(.page-header-with-button) {
     border-bottom: none !important;
+    padding: 0 !important;
     margin-bottom: 0;
     margin-top: 28px;
 }
