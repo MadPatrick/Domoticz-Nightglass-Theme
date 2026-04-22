@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popup Showcase — Nightglass Demo</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="../custom.css">
+  <link rel="stylesheet" href="demo.css">
+  <script src="custom.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style>
+    /* Force popups visible in the showcase grid */
+    .ng-showcase-grid { display: flex; flex-wrap: wrap; gap: 32px 40px; padding: 20px 0 40px; align-items: flex-start; }
+
+    .ng-showcase-item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .ng-showcase-label {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--dz-text-muted);
+    }
+    .ng-showcase-hint {
+      font-size: 0.68rem; color: var(--dz-text-muted); opacity: .6;
+    }
+
+    /* Show the popup divs statically in the showcase (override hidden/absolute) */
+    .ng-showcase-item .pop {
+      display: block !important;
+      position: static !important;
+      transform: none !important;
+      z-index: 1 !important;
+    }
+
+    .ng-demo-divider {
+      width: 100%; border-top: 1px solid var(--dz-border);
+      padding-top: 28px; margin-top: 4px;
+    }
+    .ng-demo-divider-title {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--dz-text-muted); margin-bottom: 20px;
+    }
+    .ng-demo-divider-title i { margin-right: 6px; color: var(--dz-accent); }
+
+    .ng-demo-log {
+      background: var(--dz-surface); border: 1px solid var(--dz-border);
+      border-radius: 10px; padding: 12px 16px; margin-top: 4px;
+      font-family: monospace; font-size: 0.8rem; color: var(--dz-text-muted);
+      min-height: 42px;
+    }
+    .ng-demo-log-entry { color: var(--dz-accent); }
+
+    /* Highlight which device card the popup belongs to */
+    .ng-showcase-item .pop { min-width: 0; }
+  </style>
+</head>
+<body>
+<script src="navbar.js"></script>
+<script>buildNavbar('popups');</script>
+
+<div id="holder">
+  <div class="container-fluid">
+    <div style="padding: 16px 0;">
+
+      <!-- topbar (minimal) -->
+      <div id="topBar">
+        <span id="tbTimeSun">
+          <span class="tbTime">12:34</span>
+        </span>
+      </div>
+
+      <!-- page header -->
+      <div class="page-header">
+        <i class="fa-solid fa-window-restore"></i>
+        Popup Showcase
+      </div>
+
+      <p style="color:var(--dz-text-muted);font-size:.85rem;margin:0 0 8px">
+        All redesigned popup controls shown statically below. In a real Domoticz dashboard these open on device icon click.
+      </p>
+
+      <!-- ── Thermostat Setpoint ── -->
+      <div class="ng-demo-divider">
+        <div class="ng-demo-divider-title"><i class="fa-solid fa-thermometer-half"></i> Thermostat Setpoint</div>
+        <div class="ng-showcase-grid">
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Cold (8 °C)</div>
+            <div id="setpoint_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+            <span class="ng-showcase-hint">arc + drag + ± buttons interactive</span>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Comfortable (21 °C)</div>
+            <div id="ng-sp-preview-b" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Hot (30 °C)</div>
+            <div id="ng-sp-preview-c" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Fan / Ventilation ── -->
+      <div class="ng-demo-divider">
+        <div class="ng-demo-divider-title"><i class="fa-solid fa-fan"></i> Fan &amp; Ventilation</div>
+        <div class="ng-showcase-grid">
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Itho Ventilation</div>
+            <div id="itho_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Lucci Ceiling Fan</div>
+            <div id="lucci_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Lucci DC Fan</div>
+            <div id="lucci_dc_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Falmec Kitchen Fan</div>
+            <div id="falmec_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Motor / Actuator ── -->
+      <div class="ng-demo-divider">
+        <div class="ng-demo-divider-title"><i class="fa-solid fa-sliders"></i> Motor &amp; Actuator</div>
+        <div class="ng-showcase-grid">
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">Motor Control (Thermostat3)</div>
+            <div id="thermostat3_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">RFY Sun/Wind Detector</div>
+            <div id="rfy_popup" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Action log ── -->
+      <div>
+        <div class="ng-demo-divider-title" style="padding-top:8px"><i class="fa-solid fa-terminal"></i> Action Log</div>
+        <div class="ng-demo-log" id="ng-demo-log">
+          <span style="opacity:.45">Buttons log here…</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Domoticz stubs ── -->
+<script>
+(function () {
+
+  function log(msg) {
+    var el = document.getElementById('ng-demo-log');
+    if (!el) return;
+    el.innerHTML = '<span class="ng-demo-log-entry">' +
+      new Date().toLocaleTimeString() + '  ' + msg + '</span>';
+  }
+
+  window.$.setmin  = 5;
+  window.$.setmax  = 35;
+  window.$.setstep = 0.5;
+  window.$.devIdx  = 1;
+
+  /* Setpoint stubs */
+  window.CloseSetpointPopup = function () { log('CloseSetpointPopup()'); };
+  window.SetSetpoint = function () {
+    var v = document.getElementById('popup_setpoint');
+    log('SetSetpoint → ' + (v ? parseFloat(v.value).toFixed(1) : '?') + ' °C');
+  };
+
+  /* Fan stubs */
+  window.CloseIthoPopup   = function () { log('CloseIthoPopup()'); };
+  window.IthoSendCommand  = function (c) { log('IthoSendCommand("' + c + '")'); };
+  window.CloseLucciPopup  = function () { log('CloseLucciPopup()'); };
+  window.LucciSendCommand = function (c) { log('LucciSendCommand("' + c + '")'); };
+  window.CloseFalmecPopup  = function () { log('CloseFalmecPopup()'); };
+  window.FalmecSendCommand = function (c) { log('FalmecSendCommand("' + c + '")'); };
+
+  /* Motor stubs */
+  window.CloseTherm3Popup = function () { log('CloseTherm3Popup()'); };
+  window.ThermUp    = function () { log('ThermUp()'); };
+  window.ThermDown  = function () { log('ThermDown()'); };
+  window.ThermUp2   = function () { log('ThermUp2()'); };
+  window.ThermDown2 = function () { log('ThermDown2()'); };
+  window.ThermStop  = function () { log('ThermStop()'); };
+
+  /* RFY stubs */
+  window.CloseRFYPopup    = function () { log('CloseRFYPopup()'); };
+  window.RFYEnableSunWind = function (on) { log('RFYEnableSunWind(' + on + ')'); };
+
+  /* ── Init arc previews once Feature 9 has redesigned the popups ── */
+  function tryInit() {
+    if (!window.ngShowSetpointArc) { setTimeout(tryInit, 100); return; }
+
+    // Main interactive setpoint: cold preset
+    window.ngShowSetpointArc(8.0, 5, 35, 0.5, 8.0);
+
+    // Read-only preview clones
+    buildPreview('ng-sp-preview-b', 21.0, 5, 35);
+    buildPreview('ng-sp-preview-c', 30.0, 5, 35);
+  }
+
+  /* Build a static (non-interactive) arc preview in a separate container */
+  function buildPreview(containerId, val, min, max) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+
+    var CX=110, CY=115, R=80, START=150, SWEEP=240;
+    function d2r(d) { return d * Math.PI / 180; }
+    function pt(deg) {
+      return { x: +(CX+R*Math.cos(d2r(deg))).toFixed(2), y: +(CY+R*Math.sin(d2r(deg))).toFixed(2) };
+    }
+    function arc(s, sw) {
+      if (sw <= 0) return '';
+      var a=pt(s), b=pt(s+sw);
+      return 'M'+a.x+' '+a.y+' A'+R+' '+R+' 0 '+(sw>180?1:0)+' 1 '+b.x+' '+b.y;
+    }
+    function color(t) {
+      var stops=[[0,[30,144,255]],[.35,[0,200,210]],[.55,[76,175,125]],[.75,[240,168,50]],[1,[224,85,85]]];
+      for (var i=0;i<stops.length-1;i++) {
+        if (t>=stops[i][0]&&t<=stops[i+1][0]) {
+          var f=(t-stops[i][0])/(stops[i+1][0]-stops[i][0]),c=stops[i][1],d=stops[i+1][1];
+          return 'rgb('+[0,1,2].map(function(j){return Math.round(c[j]+f*(d[j]-c[j]));}).join(',')+')';
+        }
+      }
+      return t<.5?'rgb(30,144,255)':'rgb(224,85,85)';
+    }
+
+    var uid = containerId;
+    var t   = Math.max(0, Math.min(1, (val-min)/(max-min)));
+    var col = color(t);
+    var sw  = t * SWEEP;
+    var th  = pt(START+sw);
+    var sp  = pt(START);
+    var ep  = pt(START+SWEEP);
+
+    el.innerHTML =
+      '<div class="ng-popup-title"><i class="fa-solid fa-thermometer-half"></i> Setpoint</div>' +
+      '<div class="ng-sp-actual-row">' +
+        '<span class="ng-sp-actual-label">Current</span>' +
+        '<span class="ng-sp-actual-val">' + val.toFixed(1) + ' °</span>' +
+      '</div>' +
+      '<div class="ng-sp-arc-wrap"><svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">' +
+        '<defs>' +
+          '<filter id="g'+uid+'" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+          '<filter id="s'+uid+'" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,.45)"/></filter>' +
+        '</defs>' +
+        '<path class="ng-sp-track" d="'+arc(START,SWEEP)+'" fill="none" stroke-width="10" stroke-linecap="round"/>' +
+        (sw>=2 ? '<path d="'+arc(START,sw)+'" fill="none" stroke="'+col+'" stroke-width="10" stroke-linecap="round" filter="url(#g'+uid+')"/>' : '') +
+        '<circle cx="'+th.x+'" cy="'+th.y+'" r="11" fill="'+col+'" filter="url(#s'+uid+')"/>' +
+        '<circle cx="'+sp.x+'" cy="'+sp.y+'" r="5" class="ng-sp-cold-dot"/>' +
+        '<circle cx="'+ep.x+'" cy="'+ep.y+'" r="5" class="ng-sp-hot-dot"/>' +
+        '<text x="'+CX+'" y="'+(CY-5)+'" text-anchor="middle" dominant-baseline="middle" class="ng-sp-val-big" fill="'+col+'">'+val.toFixed(1)+'</text>' +
+        '<text x="'+CX+'" y="'+(CY+23)+'" text-anchor="middle" class="ng-sp-unit">°</text>' +
+      '</svg></div>' +
+      '<div class="ng-sp-controls">' +
+        '<button class="ng-sp-btn" disabled><i class="fa-solid fa-minus"></i></button>' +
+        '<div class="ng-sp-readout" style="color:'+col+'">'+val.toFixed(1)+'°</div>' +
+        '<button class="ng-sp-btn" disabled><i class="fa-solid fa-plus"></i></button>' +
+      '</div>' +
+      '<button class="ng-sp-set-btn" disabled><i class="fa-solid fa-check"></i> Set</button>';
+  }
+
+  setTimeout(tryInit, 150);
+})();
+</script>
+
+</body>
+</html>
