@@ -3851,3 +3851,521 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 })();
+
+
+/* ── Feature 9: Popup Redesigns ─────────────────────────────────────── */
+(function () {
+    'use strict';
+
+    /* ── Overlay / modal management ────────────────────────────────── */
+
+    var _activePopupId = null;
+
+    function getOrCreateOverlay() {
+        var ov = document.getElementById('ng-popup-overlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'ng-popup-overlay';
+            ov.addEventListener('click', function (e) {
+                if (e.target === ov) ngCloseActivePopup();
+            });
+            document.body.appendChild(ov);
+        }
+        return ov;
+    }
+
+    function ngOpenPopup(id) {
+        var popup = document.getElementById(id);
+        if (!popup) return;
+        if (_activePopupId && _activePopupId !== id) ngClosePopup(_activePopupId);
+        _activePopupId = id;
+        popup.style.display = 'block';
+        getOrCreateOverlay().classList.add('ng-popup-overlay--open');
+        popup.classList.add('ng-popup--modal');
+    }
+
+    function ngClosePopup(id) {
+        var ov = document.getElementById('ng-popup-overlay');
+        if (ov) ov.classList.remove('ng-popup-overlay--open');
+        var popup = id ? document.getElementById(id) : null;
+        if (popup) {
+            popup.classList.remove('ng-popup--modal');
+            popup.style.display = 'none';
+        }
+        _activePopupId = null;
+    }
+
+    function ngCloseActivePopup() {
+        ngClosePopup(_activePopupId);
+    }
+
+    window.ngOpenPopup        = ngOpenPopup;
+    window.ngCloseActivePopup = ngCloseActivePopup;
+
+    /* ── Arc math helpers ──────────────────────────────────────────── */
+
+    // SVG viewport 220×220, dial centre 110,115, radius 80
+    // Arc: 150° (8 o'clock, cold) → clockwise 240° → 30° (4 o'clock, hot)
+    var CX = 110, CY = 115, R = 80, START = 150, SWEEP = 240;
+
+    function d2r(deg) { return deg * Math.PI / 180; }
+
+    function pt(deg) {
+        return {
+            x: +(CX + R * Math.cos(d2r(deg))).toFixed(2),
+            y: +(CY + R * Math.sin(d2r(deg))).toFixed(2)
+        };
+    }
+
+    function arcPath(startDeg, sweepDeg) {
+        if (sweepDeg <= 0) return '';
+        var s = pt(startDeg);
+        var e = pt(startDeg + sweepDeg);
+        var la = sweepDeg > 180 ? 1 : 0;
+        return 'M' + s.x + ' ' + s.y + ' A' + R + ' ' + R + ' 0 ' + la + ' 1 ' + e.x + ' ' + e.y;
+    }
+
+    function tempColor(t) {
+        var stops = [
+            [0.00, [30,  144, 255]],
+            [0.35, [0,   200, 210]],
+            [0.55, [76,  175, 125]],
+            [0.75, [240, 168,  50]],
+            [1.00, [224,  85,  85]]
+        ];
+        for (var i = 0; i < stops.length - 1; i++) {
+            var t0 = stops[i][0], t1 = stops[i + 1][0];
+            if (t >= t0 && t <= t1) {
+                var f  = (t - t0) / (t1 - t0);
+                var c  = stops[i][1], d = stops[i + 1][1];
+                return 'rgb(' + [0, 1, 2].map(function (j) {
+                    return Math.round(c[j] + f * (d[j] - c[j]));
+                }).join(',') + ')';
+            }
+        }
+        return t < 0.5 ? 'rgb(30,144,255)' : 'rgb(224,85,85)';
+    }
+
+    /* ── Setpoint state ────────────────────────────────────────────── */
+
+    var _spMin = -200, _spMax = 200, _spStep = 0.5;
+
+    function valToT(v)  { return Math.max(0, Math.min(1, (v - _spMin) / (_spMax - _spMin || 1))); }
+    function tToVal(t)  {
+        var raw = _spMin + t * (_spMax - _spMin);
+        raw = Math.round(raw / _spStep) * _spStep;
+        return +(Math.max(_spMin, Math.min(_spMax, raw)).toFixed(2));
+    }
+
+    /* ── Setpoint SVG template ─────────────────────────────────────── */
+
+    function setpointSVG() {
+        var trackPath = arcPath(START, SWEEP);
+        var startPt   = pt(START);
+        var endPt     = pt(START + SWEEP);
+        return '<svg id="ng-sp-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" ' +
+               'style="width:100%;display:block;touch-action:none">' +
+            '<defs>' +
+              '<filter id="ng-sp-glow" x="-60%" y="-60%" width="220%" height="220%">' +
+                '<feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>' +
+                '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+              '</filter>' +
+              '<filter id="ng-sp-sh" x="-60%" y="-60%" width="220%" height="220%">' +
+                '<feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,.45)"/>' +
+              '</filter>' +
+            '</defs>' +
+            '<path class="ng-sp-track" d="' + trackPath + '" fill="none" stroke-width="10" stroke-linecap="round"/>' +
+            '<path id="ng-sp-progress" d="" fill="none" stroke-width="10" stroke-linecap="round"/>' +
+            '<circle id="ng-sp-thumb" r="11" fill="#fff" filter="url(#ng-sp-sh)" style="cursor:grab"/>' +
+            '<circle cx="' + startPt.x + '" cy="' + startPt.y + '" r="5" class="ng-sp-cold-dot"/>' +
+            '<circle cx="' + endPt.x + '"   cy="' + endPt.y   + '" r="5" class="ng-sp-hot-dot"/>' +
+            '<text id="ng-sp-val-text" x="' + CX + '" y="' + (CY - 5)  + '" ' +
+                  'text-anchor="middle" dominant-baseline="middle" class="ng-sp-val-big"></text>' +
+            '<text id="ng-sp-unit-text" x="' + CX + '" y="' + (CY + 23) + '" ' +
+                  'text-anchor="middle" class="ng-sp-unit">°</text>' +
+        '</svg>';
+    }
+
+    /* ── Arc rendering ─────────────────────────────────────────────── */
+
+    function updateArc(val) {
+        var t        = valToT(val);
+        var color    = tempColor(t);
+        var sweepDeg = t * SWEEP;
+
+        var progress = document.getElementById('ng-sp-progress');
+        if (progress) {
+            var d = sweepDeg >= 2 ? arcPath(START, sweepDeg) : '';
+            progress.setAttribute('d', d);
+            progress.setAttribute('stroke', color);
+            if (sweepDeg > 15) {
+                progress.setAttribute('filter', 'url(#ng-sp-glow)');
+            } else {
+                progress.removeAttribute('filter');
+            }
+        }
+
+        var thumb = document.getElementById('ng-sp-thumb');
+        if (thumb) {
+            var p = pt(START + sweepDeg);
+            thumb.setAttribute('cx', p.x);
+            thumb.setAttribute('cy', p.y);
+            thumb.setAttribute('fill', color);
+        }
+
+        var valText = document.getElementById('ng-sp-val-text');
+        if (valText) {
+            valText.textContent = (+val).toFixed(1);
+            valText.setAttribute('fill', color);
+        }
+
+        var readout = document.getElementById('ng-sp-display');
+        if (readout) {
+            readout.textContent = (+val).toFixed(1) + '°';
+            readout.style.color = color;
+        }
+    }
+
+    function syncArcFromInput() {
+        if (window.$) {
+            _spMin  = parseFloat(window.$.setmin)  !== undefined ? parseFloat(window.$.setmin)  : -200;
+            _spMax  = parseFloat(window.$.setmax)  !== undefined ? parseFloat(window.$.setmax)  :  200;
+            _spStep = parseFloat(window.$.setstep) || 0.5;
+        }
+        var input = document.getElementById('popup_setpoint');
+        if (!input) return;
+        updateArc(parseFloat(input.value) || 0);
+
+        var actual  = document.getElementById('actual_value');
+        var actDisp = document.getElementById('ng-sp-actual');
+        if (actDisp && actual) {
+            actDisp.textContent = actual.textContent || actual.innerHTML || '—';
+        }
+    }
+
+    /* ── Global step handler (called from onclick) ─────────────────── */
+
+    window.ngSetpointChange = function (dir) {
+        if (window.$) {
+            _spStep = parseFloat(window.$.setstep) || 0.5;
+            _spMin  = parseFloat(window.$.setmin)  !== undefined ? parseFloat(window.$.setmin)  : -200;
+            _spMax  = parseFloat(window.$.setmax)  !== undefined ? parseFloat(window.$.setmax)  :  200;
+        }
+        var input = document.getElementById('popup_setpoint');
+        if (!input) return;
+        var val = tToVal(valToT(parseFloat(input.value) || 0) + dir * _spStep / (_spMax - _spMin || 1));
+        // Use Domoticz's own step functions for clamping precision, fall back to direct edit
+        var newVal = +(Math.max(_spMin, Math.min(_spMax,
+                        Math.round(((parseFloat(input.value) || 0) + dir * _spStep) * 1000) / 1000
+                     )).toFixed(2));
+        input.value = newVal;
+        if (window.$) $(input).val(newVal);
+        updateArc(newVal);
+    };
+
+    /* ── Arc drag interaction ──────────────────────────────────────── */
+
+    function attachArcDrag(svg) {
+        if (!svg) return;
+        var dragging = false;
+
+        function angleFrom(e) {
+            var rect = svg.getBoundingClientRect();
+            var sx   = 220 / (rect.width  || 220);
+            var sy   = 220 / (rect.height || 220);
+            var cx   = e.touches ? e.touches[0].clientX : e.clientX;
+            var cy   = e.touches ? e.touches[0].clientY : e.clientY;
+            var deg  = Math.atan2((cy - rect.top) * sy - CY,
+                                  (cx - rect.left) * sx - CX) * 180 / Math.PI;
+            return deg < 0 ? deg + 360 : deg;
+        }
+
+        function applyAngle(e) {
+            var rel = angleFrom(e) - START;
+            if (rel < 0) rel += 360;
+            if (rel > SWEEP + 60) rel = 0;
+            if (rel > SWEEP) rel = SWEEP;
+            var val = tToVal(rel / SWEEP);
+            var inp = document.getElementById('popup_setpoint');
+            if (inp) { inp.value = val; if (window.$) $(inp).val(val); }
+            updateArc(val);
+        }
+
+        svg.addEventListener('mousedown',  function (e) { dragging = true;  applyAngle(e); });
+        document.addEventListener('mousemove',  function (e) { if (dragging) applyAngle(e); });
+        document.addEventListener('mouseup',    function ()  { dragging = false; });
+        svg.addEventListener('touchstart', function (e) { dragging = true;  applyAngle(e); e.preventDefault(); }, { passive: false });
+        document.addEventListener('touchmove',  function (e) { if (dragging) { applyAngle(e); e.preventDefault(); } }, { passive: false });
+        document.addEventListener('touchend',   function ()  { dragging = false; });
+    }
+
+    /* ── Popup redesigns ───────────────────────────────────────────── */
+
+    function redesignSetpointPopup() {
+        var popup = document.getElementById('setpoint_popup');
+        if (!popup || popup.dataset.ngDone) return;
+        popup.dataset.ngDone = '1';
+
+        popup.innerHTML =
+            // Domoticz-required hidden elements
+            '<input type="hidden" id="popup_setpoint">' +
+            '<span id="actual_value" style="display:none" aria-hidden="true"></span>' +
+
+            '<button class="ng-popup-close" onclick="CloseSetpointPopup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+
+            '<div class="ng-popup-title"><i class="fa-solid fa-thermometer-half"></i> Setpoint</div>' +
+
+            '<div class="ng-sp-actual-row">' +
+            '  <span class="ng-sp-actual-label">Current</span>' +
+            '  <span id="ng-sp-actual" class="ng-sp-actual-val">—</span>' +
+            '</div>' +
+
+            '<div class="ng-sp-arc-wrap">' + setpointSVG() + '</div>' +
+
+            '<div class="ng-sp-controls">' +
+            '  <button class="ng-sp-btn" onclick="ngSetpointChange(-1)" aria-label="Decrease">' +
+            '    <i class="fa-solid fa-minus"></i></button>' +
+            '  <div id="ng-sp-display" class="ng-sp-readout">—</div>' +
+            '  <button class="ng-sp-btn" onclick="ngSetpointChange(1)"  aria-label="Increase">' +
+            '    <i class="fa-solid fa-plus"></i></button>' +
+            '</div>' +
+
+            '<button class="ng-sp-set-btn" onclick="SetSetpoint()">' +
+            '  <i class="fa-solid fa-check"></i> Set</button>';
+
+        attachArcDrag(document.getElementById('ng-sp-svg'));
+
+        // Render a neutral default so the arc is never blank on first open
+        setTimeout(function () { updateArc(20); }, 0);
+
+        // Mirror actual_value updates to our display
+        var actualEl = document.getElementById('actual_value');
+        if (actualEl && window.MutationObserver) {
+            new MutationObserver(function () {
+                var d = document.getElementById('ng-sp-actual');
+                if (d) d.textContent = actualEl.textContent || '—';
+            }).observe(actualEl, { childList: true, characterData: true, subtree: true });
+        }
+    }
+
+    function redesignIthoPopup() {
+        var p = document.getElementById('itho_popup');
+        if (!p || p.dataset.ngDone) return;
+        p.dataset.ngDone = '1';
+        p.innerHTML =
+            '<button class="ng-popup-close" onclick="CloseIthoPopup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+            '<div class="ng-popup-title"><i class="fa-solid fa-fan"></i> Ventilation</div>' +
+            '<div class="ng-seg-group">' +
+            '  <button class="ng-seg-btn" onclick="IthoSendCommand(\'1\')">' +
+            '    <i class="fa-solid fa-wind"></i><span>Low</span></button>' +
+            '  <button class="ng-seg-btn" onclick="IthoSendCommand(\'2\')">' +
+            '    <i class="fa-solid fa-wind"></i><span>Med</span></button>' +
+            '  <button class="ng-seg-btn" onclick="IthoSendCommand(\'3\')">' +
+            '    <i class="fa-solid fa-wind"></i><span>High</span></button>' +
+            '</div>' +
+            '<button class="ng-seg-btn ng-seg-btn--full" onclick="IthoSendCommand(\'timer\')">' +
+            '  <i class="fa-solid fa-clock"></i> Timer</button>';
+    }
+
+    function redesignLucciPopup() {
+        var p = document.getElementById('lucci_popup');
+        if (!p || p.dataset.ngDone) return;
+        p.dataset.ngDone = '1';
+        p.innerHTML =
+            '<button class="ng-popup-close" onclick="CloseLucciPopup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+            '<div class="ng-popup-title"><i class="fa-solid fa-fan"></i> Ceiling Fan</div>' +
+            '<div class="ng-seg-group">' +
+            '  <button class="ng-seg-btn" onclick="LucciSendCommand(\'lo\')">' +
+            '    <i class="fa-solid fa-fan"></i><span>Low</span></button>' +
+            '  <button class="ng-seg-btn" onclick="LucciSendCommand(\'med\')">' +
+            '    <i class="fa-solid fa-fan"></i><span>Med</span></button>' +
+            '  <button class="ng-seg-btn" onclick="LucciSendCommand(\'hi\')">' +
+            '    <i class="fa-solid fa-fan"></i><span>High</span></button>' +
+            '</div>' +
+            '<div class="ng-popup-row-2">' +
+            '  <button class="ng-action-btn ng-action-btn--danger" onclick="LucciSendCommand(\'off\')">' +
+            '    <i class="fa-solid fa-power-off"></i> Off</button>' +
+            '  <button class="ng-action-btn" onclick="LucciSendCommand(\'light\')">' +
+            '    <i class="fa-solid fa-lightbulb"></i> Light</button>' +
+            '</div>';
+    }
+
+    function redesignLucciDCPopup() {
+        var p = document.getElementById('lucci_dc_popup');
+        if (!p || p.dataset.ngDone) return;
+        p.dataset.ngDone = '1';
+        p.innerHTML =
+            '<button class="ng-popup-close" onclick="CloseLucciPopup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+            '<div class="ng-popup-title"><i class="fa-solid fa-fan"></i> DC Fan</div>' +
+            '<div class="ng-popup-row-2" style="padding-top:10px">' +
+            '  <button class="ng-sp-btn" onclick="LucciSendCommand(\'min\')" aria-label="Slower">' +
+            '    <i class="fa-solid fa-minus"></i></button>' +
+            '  <button class="ng-action-btn ng-action-btn--danger" onclick="LucciSendCommand(\'pow\')">' +
+            '    <i class="fa-solid fa-power-off"></i></button>' +
+            '  <button class="ng-sp-btn" onclick="LucciSendCommand(\'plus\')" aria-label="Faster">' +
+            '    <i class="fa-solid fa-plus"></i></button>' +
+            '</div>' +
+            '<button class="ng-seg-btn ng-seg-btn--full" onclick="LucciSendCommand(\'light\')">' +
+            '  <i class="fa-solid fa-lightbulb"></i> Light</button>';
+    }
+
+    function redesignFalmecPopup() {
+        var p = document.getElementById('falmec_popup');
+        if (!p || p.dataset.ngDone) return;
+        p.dataset.ngDone = '1';
+        p.innerHTML =
+            '<button class="ng-popup-close" onclick="CloseFalmecPopup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+            '<div class="ng-popup-title"><i class="fa-solid fa-wind"></i> Kitchen Fan</div>' +
+            '<div class="ng-seg-group">' +
+            '  <button class="ng-seg-btn" onclick="FalmecSendCommand(\'1\')"><span class="ng-seg-num">1</span></button>' +
+            '  <button class="ng-seg-btn" onclick="FalmecSendCommand(\'2\')"><span class="ng-seg-num">2</span></button>' +
+            '  <button class="ng-seg-btn" onclick="FalmecSendCommand(\'3\')"><span class="ng-seg-num">3</span></button>' +
+            '  <button class="ng-seg-btn" onclick="FalmecSendCommand(\'4\')"><span class="ng-seg-num">4</span></button>' +
+            '</div>' +
+            '<div class="ng-popup-row-2">' +
+            '  <button class="ng-action-btn ng-action-btn--danger" onclick="FalmecSendCommand(\'poff\')">' +
+            '    <i class="fa-solid fa-power-off"></i> Off</button>' +
+            '  <button class="ng-action-btn" onclick="FalmecSendCommand(\'lon\')">' +
+            '    <i class="fa-solid fa-lightbulb"></i> On</button>' +
+            '  <button class="ng-action-btn" onclick="FalmecSendCommand(\'loff\')">' +
+            '    <i class="fa-solid fa-lightbulb" style="opacity:.4"></i> Off</button>' +
+            '</div>';
+    }
+
+    function redesignThermostat3Popup() {
+        var p = document.getElementById('thermostat3_popup');
+        if (!p || p.dataset.ngDone) return;
+        p.dataset.ngDone = '1';
+        p.innerHTML =
+            // Keep original <a> anchors hidden — Domoticz's ShowTherm3PopupInt
+            // attaches jQuery click handlers to them, our buttons delegate here.
+            '<a id="popup_therm_on"  style="display:none"></a>' +
+            '<a id="popup_therm_off" style="display:none"></a>' +
+
+            '<button class="ng-popup-close" onclick="CloseTherm3Popup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+            '<div class="ng-popup-title"><i class="fa-solid fa-sliders"></i> Motor Control</div>' +
+
+            '<div class="ng-motor-grid">' +
+            '  <div class="ng-motor-col">' +
+            '    <span class="ng-motor-label">Motor 1</span>' +
+            '    <button class="ng-motor-btn" id="ng-therm3-on" aria-label="On">' +
+            '      <i class="fa-solid fa-power-off"></i></button>' +
+            '    <button class="ng-motor-btn" onclick="ThermUp()" aria-label="Up">' +
+            '      <i class="fa-solid fa-chevron-up"></i></button>' +
+            '    <button class="ng-motor-btn ng-motor-btn--stop" onclick="ThermStop()" aria-label="Stop">' +
+            '      <i class="fa-solid fa-stop"></i></button>' +
+            '    <button class="ng-motor-btn" onclick="ThermDown()" aria-label="Down">' +
+            '      <i class="fa-solid fa-chevron-down"></i></button>' +
+            '    <button class="ng-motor-btn ng-motor-btn--off" id="ng-therm3-off" aria-label="Off">' +
+            '      <i class="fa-regular fa-circle-xmark"></i></button>' +
+            '  </div>' +
+            '  <div class="ng-motor-divider"></div>' +
+            '  <div class="ng-motor-col">' +
+            '    <span class="ng-motor-label">Motor 2</span>' +
+            '    <button class="ng-motor-btn" onclick="ThermUp2()" aria-label="Up 2">' +
+            '      <i class="fa-solid fa-chevron-up"></i></button>' +
+            '    <button class="ng-motor-btn" onclick="ThermDown2()" aria-label="Down 2">' +
+            '      <i class="fa-solid fa-chevron-down"></i></button>' +
+            '  </div>' +
+            '</div>';
+
+        // Delegate our on/off buttons to the hidden Domoticz anchor elements
+        document.getElementById('ng-therm3-on').addEventListener('click', function () {
+            var a = document.getElementById('popup_therm_on');
+            if (a) a.click();
+        });
+        document.getElementById('ng-therm3-off').addEventListener('click', function () {
+            var a = document.getElementById('popup_therm_off');
+            if (a) a.click();
+        });
+    }
+
+    function redesignRFYPopup() {
+        var p = document.getElementById('rfy_popup');
+        if (!p || p.dataset.ngDone) return;
+        p.dataset.ngDone = '1';
+        p.innerHTML =
+            '<button class="ng-popup-close" onclick="CloseRFYPopup(); ngCloseActivePopup();" aria-label="Close">' +
+            '  <i class="fa-solid fa-xmark"></i></button>' +
+            '<div class="ng-popup-title"><i class="fa-solid fa-sun"></i> Sun/Wind Detector</div>' +
+            '<button class="ng-rfy-btn ng-rfy-btn--enable" onclick="RFYEnableSunWind(1)">' +
+            '  <i class="fa-solid fa-toggle-on"></i> Enable</button>' +
+            '<button class="ng-rfy-btn ng-rfy-btn--disable" onclick="RFYEnableSunWind(0)">' +
+            '  <i class="fa-solid fa-toggle-off"></i> Disable</button>';
+    }
+
+    /* ── Hook ShowSetpointPopupInt to sync arc after Domoticz populates values ── */
+
+    function hookSetpointShow() {
+        if (!window.ShowSetpointPopupInt) { setTimeout(hookSetpointShow, 300); return; }
+        if (window.ShowSetpointPopupInt._ngHooked) return;
+        var orig = window.ShowSetpointPopupInt;
+        window.ShowSetpointPopupInt = function () {
+            orig.apply(this, arguments);
+            setTimeout(syncArcFromInput, 0);
+        };
+        window.ShowSetpointPopupInt._ngHooked = true;
+    }
+
+    /* ── Init ──────────────────────────────────────────────────────── */
+
+    function initPopups() {
+        redesignSetpointPopup();
+        redesignIthoPopup();
+        redesignLucciPopup();
+        redesignLucciDCPopup();
+        redesignFalmecPopup();
+        redesignThermostat3Popup();
+        redesignRFYPopup();
+        hookSetpointShow();
+
+        // Watch each popup for Domoticz's native show/hide (jQuery Mobile)
+        // so the overlay opens/closes automatically without needing to hook every show function
+        var POPUP_IDS = ['setpoint_popup', 'thermostat3_popup', 'itho_popup',
+                         'lucci_popup', 'lucci_dc_popup', 'falmec_popup', 'rfy_popup'];
+        if (window.MutationObserver) {
+            POPUP_IDS.forEach(function (id) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                new MutationObserver(function () {
+                    var visible = el.style.display === 'block' ||
+                        (el.style.display === '' &&
+                         window.getComputedStyle(el).display !== 'none');
+                    if (visible && _activePopupId !== id) {
+                        ngOpenPopup(id);
+                    } else if (!visible && _activePopupId === id) {
+                        ngClosePopup(id);
+                    }
+                }).observe(el, { attributes: true, attributeFilter: ['style'] });
+            });
+        }
+    }
+
+    // Public API — callable from demo pages and Domoticz hooks without knowledge of internals
+    window.ngShowSetpointArc = function (val, min, max, step, actualVal) {
+        if (min  !== undefined) _spMin  = +min;
+        if (max  !== undefined) _spMax  = +max;
+        if (step !== undefined) _spStep = +step || 0.5;
+        var inp = document.getElementById('popup_setpoint');
+        var act = document.getElementById('actual_value');
+        var actDisp = document.getElementById('ng-sp-actual');
+        if (inp) inp.value = val;
+        if (act) act.textContent = (actualVal !== undefined ? actualVal : val);
+        if (actDisp) actDisp.textContent = (actualVal !== undefined ? actualVal : val);
+        updateArc(+val);
+        var disp = document.getElementById('ng-sp-display');
+        if (disp) { disp.textContent = (+val).toFixed(1) + '°'; disp.style.color = tempColor(valToT(+val)); }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPopups);
+    } else {
+        initPopups();
+    }
+})();
