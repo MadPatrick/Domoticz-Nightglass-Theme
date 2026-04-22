@@ -2508,7 +2508,7 @@ document.addEventListener('DOMContentLoaded', function () {
         enableEffects:      true,
         enableColors:       true,
         fontSize:           '100',
-        columnLayout:       false,
+
         liveToasts:         true,
         liveToastFilter:    'meaningful',
         liveToastDuration:  '4',
@@ -3040,26 +3040,6 @@ document.addEventListener('DOMContentLoaded', function () {
             ucStyle.remove();
         }
 
-        // Column layout (single-column device grid)
-        var colStyle = document.getElementById('dz-ng-column-style');
-        if (_settings.columnLayout) {
-            if (!colStyle) {
-                colStyle = document.createElement('style');
-                colStyle.id = 'dz-ng-column-style';
-                colStyle.textContent =
-                    '.devicesList .row > [class*="col-"],' +
-                    'section.dashCategory .row > [class*="col-"],' +
-                    '#tempwidgets .row > [class*="col-"],' +
-                    '#weatherwidgets .row > [class*="col-"] {' +
-                    '  width: 100% !important;' +
-                    '  flex: 0 0 100% !important;' +
-                    '  max-width: 100% !important;' +
-                    '}';
-                document.head.appendChild(colStyle);
-            }
-        } else if (colStyle) {
-            colStyle.remove();
-        }
 
         // Font size
         var pct = parseInt(_settings.fontSize, 10) || 100;
@@ -3237,7 +3217,7 @@ document.addEventListener('DOMContentLoaded', function () {
             slider('iconSize', 'Device Icon Size', 60, 150, 5, '%', 'Scale device icons on cards') +
             toggle('showLastUpdate', 'Show Last Update', 'Show the formatted timestamp footer on device cards') +
             toggle('uppercaseNames', 'Uppercase Device Names', 'Force device names to UPPERCASE on cards') +
-            toggle('columnLayout', 'Single-Column Layout', 'Stack all device widgets in a single column instead of a responsive grid') +
+
             '</div>' +
 
             '<div class="ng-settings-section">' +
@@ -4443,29 +4423,384 @@ document.addEventListener('DOMContentLoaded', function () {
         var p = document.getElementById('rgbw_popup');
         if (!p) return;
 
-        function ensureHeader() {
-            if (p.querySelector('.ng-rgbw-header')) return;
-            var firstChild = p.firstChild;
-            if (!firstChild) return;
-            var hdr = document.createElement('div');
-            hdr.className = 'ng-rgbw-header';
-            hdr.innerHTML =
-                '<button class="ng-popup-close" onclick="ngCloseActivePopup();" aria-label="Close">' +
-                '  <i class="fa-solid fa-xmark"></i></button>' +
-                '<div class="ng-popup-title"><i class="fa-solid fa-palette"></i> Color</div>';
-            p.insertBefore(hdr, firstChild);
+        /* ── State ──────────────────────────────────────────────────── */
+        var _idx     = null;
+        var _mode    = 'color';   // 'color' | 'white'
+        var _isRGBW  = false;
+        var _h = 0, _s = 1, _v = 1;
+        var _bright  = 100;
+        var _warmth  = 0.5;       // 0 = cool white, 1 = warm white
+        var WSIZE    = 200;       // canvas pixel size
+        var WR       = WSIZE / 2; // wheel radius
+
+        /* ── Colour math ─────────────────────────────────────────────── */
+        function hsvToRgb(h, s, v) {
+            var r, g, b, i = Math.floor(h * 6), f = h * 6 - i;
+            var p = v*(1-s), q = v*(1-f*s), t = v*(1-(1-f)*s);
+            switch (i % 6) {
+                case 0: r=v; g=t; b=p; break; case 1: r=q; g=v; b=p; break;
+                case 2: r=p; g=v; b=t; break; case 3: r=p; g=q; b=v; break;
+                case 4: r=t; g=p; b=v; break; default: r=v; g=p; b=q;
+            }
+            return { r: Math.round(r*255), g: Math.round(g*255), b: Math.round(b*255) };
         }
 
-        // Domoticz fills #rgbw_popup dynamically on each show.
-        // Watch for child additions and inject the header each time.
-        new MutationObserver(function (mutations) {
-            var hasNewContent = mutations.some(function (m) {
-                return Array.prototype.some.call(m.addedNodes, function (n) {
-                    return n.nodeType === 1 && !(n.classList && n.classList.contains('ng-rgbw-header'));
+        function rgbToHsv(r, g, b) {
+            r/=255; g/=255; b/=255;
+            var max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+            var h, s=max===0?0:d/max, v=max;
+            if (max===min) { h=0; }
+            else {
+                switch (max) {
+                    case r: h=((g-b)/d+(g<b?6:0))/6; break;
+                    case g: h=((b-r)/d+2)/6; break;
+                    default: h=((r-g)/d+4)/6;
+                }
+            }
+            return { h: h, s: s, v: v };
+        }
+
+        function warmthToRgb(w) {
+            // w=0 → cool #E8F4FD, w=1 → warm #FFB347
+            return {
+                r: Math.round(232 + (255-232)*w),
+                g: Math.round(244 + (179-244)*w),
+                b: Math.round(253 + (71-253)*w)
+            };
+        }
+
+        function toHex(n) { return ('0'+n.toString(16)).slice(-2); }
+
+        /* ── Canvas wheel rendering ──────────────────────────────────── */
+        function drawWheel(canvas) {
+            var ctx = canvas.getContext('2d');
+            var img = ctx.createImageData(WSIZE, WSIZE);
+            var d = img.data;
+            for (var y=0; y<WSIZE; y++) {
+                for (var x=0; x<WSIZE; x++) {
+                    var dx=x-WR, dy=y-WR, dist=Math.sqrt(dx*dx+dy*dy);
+                    var i4=(y*WSIZE+x)*4;
+                    if (dist > WR) { d[i4+3]=0; continue; }
+                    var h=((Math.atan2(dy,dx)/(2*Math.PI))+1)%1;
+                    var s=dist/WR;
+                    var rgb=hsvToRgb(h,s,1);
+                    d[i4]=rgb.r; d[i4+1]=rgb.g; d[i4+2]=rgb.b; d[i4+3]=255;
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+        }
+
+        function drawWheelCursor(canvas) {
+            var ctx = canvas.getContext('2d');
+            var angle = _h * 2 * Math.PI;
+            var rad   = _s * (WR - 6);
+            var cx = WR + rad * Math.cos(angle);
+            var cy = WR + rad * Math.sin(angle);
+            var rgb = hsvToRgb(_h, _s, 1);
+            ctx.beginPath(); ctx.arc(cx, cy, 9, 0, 2*Math.PI);
+            ctx.fillStyle = 'rgb('+rgb.r+','+rgb.g+','+rgb.b+')';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 2*Math.PI);
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+
+        function renderWheel(canvas) {
+            drawWheel(canvas);
+            drawWheelCursor(canvas);
+        }
+
+        /* ── Preview + slider update ─────────────────────────────────── */
+        function updatePreview() {
+            var swatch = p.querySelector('.ng-rgbw-swatch');
+            var hexEl  = p.querySelector('.ng-rgbw-hex');
+            var rgb;
+            if (_mode === 'color') {
+                rgb = hsvToRgb(_h, _s, 1);
+                if (swatch) swatch.style.background =
+                    'rgb('+rgb.r+','+rgb.g+','+rgb.b+')';
+                if (hexEl) hexEl.textContent =
+                    '#'+toHex(rgb.r)+toHex(rgb.g)+toHex(rgb.b);
+            } else {
+                rgb = warmthToRgb(_warmth);
+                if (swatch) swatch.style.background =
+                    'rgb('+rgb.r+','+rgb.g+','+rgb.b+')';
+                if (hexEl) hexEl.textContent =
+                    _warmth < 0.3 ? 'Cool white' : _warmth > 0.7 ? 'Warm white' : 'Natural';
+            }
+        }
+
+        /* ── Build popup HTML ────────────────────────────────────────── */
+        function buildUI(isRGBW) {
+            _isRGBW = isRGBW;
+            p.innerHTML =
+                '<button class="ng-popup-close" onclick="ngCloseActivePopup();" aria-label="Close">' +
+                '  <i class="fa-solid fa-xmark"></i></button>' +
+                '<div class="ng-popup-title"><i class="fa-solid fa-palette"></i> Colour</div>' +
+
+                (isRGBW ?
+                '<div class="ng-rgbw-tabs">' +
+                '  <button class="ng-rgbw-tab ng-rgbw-tab--active" data-mode="color" onclick="ngRgbwSetMode(\'color\')">' +
+                '    <i class="fa-solid fa-circle-half-stroke"></i> Colour</button>' +
+                '  <button class="ng-rgbw-tab" data-mode="white" onclick="ngRgbwSetMode(\'white\')">' +
+                '    <i class="fa-solid fa-sun"></i> White</button>' +
+                '</div>' : '') +
+
+                // Colour wheel pane
+                '<div class="ng-rgbw-pane" id="ng-rgbw-pane-color">' +
+                '  <div class="ng-rgbw-wheel-wrap">' +
+                '    <canvas id="ng-rgbw-canvas" width="'+WSIZE+'" height="'+WSIZE+'" ' +
+                '      style="border-radius:50%;touch-action:none;cursor:crosshair;display:block"></canvas>' +
+                '  </div>' +
+                '</div>' +
+
+                // White temperature pane
+                (isRGBW ?
+                '<div class="ng-rgbw-pane" id="ng-rgbw-pane-white" style="display:none">' +
+                '  <div class="ng-rgbw-warmth-wrap">' +
+                '    <canvas id="ng-rgbw-warmth-canvas" width="240" height="32" ' +
+                '      style="display:block;border-radius:16px;touch-action:none;cursor:crosshair"></canvas>' +
+                '  </div>' +
+                '  <div class="ng-rgbw-warmth-labels">' +
+                '    <span><i class="fa-solid fa-snowflake"></i> Cool</span>' +
+                '    <span>Warm <i class="fa-solid fa-fire"></i></span>' +
+                '  </div>' +
+                '</div>' : '') +
+
+                // Colour preview swatch
+                '<div class="ng-rgbw-preview">' +
+                '  <div class="ng-rgbw-swatch"></div>' +
+                '  <span class="ng-rgbw-hex">#ffffff</span>' +
+                '</div>' +
+
+                // Brightness slider
+                '<div class="ng-rgbw-slider-row">' +
+                '  <i class="fa-solid fa-moon ng-rgbw-icon-dim"></i>' +
+                '  <input type="range" class="ng-rgbw-slider ng-rgbw-slider--bright" ' +
+                '    id="ng-rgbw-bright" min="1" max="100" value="100">' +
+                '  <i class="fa-solid fa-sun ng-rgbw-icon-bright"></i>' +
+                '</div>' +
+
+                // Preset action chips
+                '<div class="ng-rgbw-presets">' +
+                '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'on\')">' +
+                '    <i class="fa-solid fa-power-off"></i> On</button>' +
+                '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'full\')">' +
+                '    <i class="fa-solid fa-lightbulb"></i> Full</button>' +
+                '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'night\')">' +
+                '    <i class="fa-solid fa-moon"></i> Night</button>' +
+                '  <button class="ng-rgbw-preset ng-rgbw-preset--off" onclick="ngRgbwPreset(\'off\')">' +
+                '    <i class="fa-regular fa-circle-xmark"></i> Off</button>' +
+                '</div>' +
+
+                '<button class="ng-sp-set-btn" onclick="ngRgbwApply()">' +
+                '  <i class="fa-solid fa-check"></i> Set Colour</button>';
+
+            // Draw colour wheel
+            var wc = document.getElementById('ng-rgbw-canvas');
+            if (wc) { renderWheel(wc); attachWheelInteraction(wc); }
+
+            // Draw warmth gradient
+            if (isRGBW) {
+                var wt = document.getElementById('ng-rgbw-warmth-canvas');
+                if (wt) { drawWarmthBar(wt); attachWarmthInteraction(wt); }
+            }
+
+            // Bind brightness slider
+            var bright = document.getElementById('ng-rgbw-bright');
+            if (bright) {
+                bright.value = _bright;
+                bright.addEventListener('input', function () {
+                    _bright = parseInt(this.value, 10);
                 });
-            });
-            if (hasNewContent) setTimeout(ensureHeader, 0);
-        }).observe(p, { childList: true });
+            }
+
+            updatePreview();
+        }
+
+        /* ── Warmth bar (for white mode) ─────────────────────────────── */
+        function drawWarmthBar(canvas) {
+            var ctx = canvas.getContext('2d');
+            var g = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            g.addColorStop(0,   '#E8F4FD'); // cool 6500K
+            g.addColorStop(0.5, '#FFF5E0'); // natural 4000K
+            g.addColorStop(1,   '#FFB347'); // warm 2700K
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.roundRect ? ctx.roundRect(0,0,canvas.width,canvas.height,16)
+                          : ctx.rect(0,0,canvas.width,canvas.height);
+            ctx.fill();
+            drawWarmthCursor(canvas);
+        }
+
+        function drawWarmthCursor(canvas) {
+            var ctx = canvas.getContext('2d');
+            var x = _warmth * (canvas.width - 1);
+            ctx.beginPath();
+            ctx.arc(x, canvas.height/2, 12, 0, 2*Math.PI);
+            var rgb = warmthToRgb(_warmth);
+            ctx.fillStyle = 'rgb('+rgb.r+','+rgb.g+','+rgb.b+')';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
+        }
+
+        function attachWarmthInteraction(canvas) {
+            var dragging = false;
+            function pick(e) {
+                var rect = canvas.getBoundingClientRect();
+                var cx = e.touches ? e.touches[0].clientX : e.clientX;
+                _warmth = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
+                drawWarmthBar(canvas);
+                updatePreview();
+            }
+            canvas.addEventListener('mousedown', function(e) { dragging=true; pick(e); });
+            document.addEventListener('mousemove', function(e) { if (dragging) pick(e); });
+            document.addEventListener('mouseup', function() { dragging=false; });
+            canvas.addEventListener('touchstart', function(e) { dragging=true; pick(e); e.preventDefault(); }, { passive:false });
+            document.addEventListener('touchmove', function(e) { if (dragging) { pick(e); e.preventDefault(); } }, { passive:false });
+            document.addEventListener('touchend', function() { dragging=false; });
+        }
+
+        /* ── Wheel interaction ───────────────────────────────────────── */
+        function attachWheelInteraction(canvas) {
+            var dragging = false;
+            function pick(e) {
+                var rect  = canvas.getBoundingClientRect();
+                var scale = WSIZE / (rect.width || WSIZE);
+                var cx = e.touches ? e.touches[0].clientX : e.clientX;
+                var cy = e.touches ? e.touches[0].clientY : e.clientY;
+                var dx = (cx - rect.left)  * scale - WR;
+                var dy = (cy - rect.top)   * scale - WR;
+                var dist = Math.sqrt(dx*dx + dy*dy);
+                _h = ((Math.atan2(dy, dx) / (2*Math.PI)) + 1) % 1;
+                _s = Math.min(dist / WR, 1);
+                drawWheel(canvas);
+                drawWheelCursor(canvas);
+                updatePreview();
+            }
+            canvas.addEventListener('mousedown', function(e) { dragging=true; pick(e); });
+            document.addEventListener('mousemove', function(e) { if (dragging) pick(e); });
+            document.addEventListener('mouseup', function() { dragging=false; });
+            canvas.addEventListener('touchstart', function(e) { dragging=true; pick(e); e.preventDefault(); }, { passive:false });
+            document.addEventListener('touchmove', function(e) { if (dragging) { pick(e); e.preventDefault(); } }, { passive:false });
+            document.addEventListener('touchend', function() { dragging=false; });
+        }
+
+        /* ── Global functions (bound via onclick) ────────────────────── */
+        window.ngRgbwSetMode = function (mode) {
+            _mode = mode;
+            var tabs = p.querySelectorAll('.ng-rgbw-tab');
+            for (var i=0; i<tabs.length; i++) {
+                tabs[i].classList.toggle('ng-rgbw-tab--active', tabs[i].dataset.mode === mode);
+            }
+            var cp = document.getElementById('ng-rgbw-pane-color');
+            var wp = document.getElementById('ng-rgbw-pane-white');
+            if (cp) cp.style.display = mode === 'color' ? '' : 'none';
+            if (wp) wp.style.display = mode === 'white' ? '' : 'none';
+            updatePreview();
+        };
+
+        window.ngRgbwPreset = function (preset) {
+            if (preset === 'on') {
+                if (_idx) {
+                    fetch('/json.htm?type=command&param=switchlight&idx=' + _idx + '&switchcmd=On');
+                    ngCloseActivePopup();
+                }
+            } else if (preset === 'off') {
+                if (_idx) {
+                    fetch('/json.htm?type=command&param=switchlight&idx=' + _idx + '&switchcmd=Off');
+                    ngCloseActivePopup();
+                }
+            } else if (preset === 'full') {
+                // Full white at max brightness
+                if (_isRGBW) {
+                    _mode = 'white'; _warmth = 0.5; _bright = 100;
+                    window.ngRgbwSetMode('white');
+                } else {
+                    _h = 0.15; _s = 0.05; _bright = 100;
+                    var wc2 = document.getElementById('ng-rgbw-canvas');
+                    if (wc2) renderWheel(wc2);
+                }
+                var bs = document.getElementById('ng-rgbw-bright');
+                if (bs) bs.value = 100;
+                updatePreview();
+            } else if (preset === 'night') {
+                // Warm amber at 15% brightness
+                _mode = 'color'; _h = 0.08; _s = 0.85; _bright = 15;
+                var wc3 = document.getElementById('ng-rgbw-canvas');
+                if (wc3) renderWheel(wc3);
+                var bs2 = document.getElementById('ng-rgbw-bright');
+                if (bs2) bs2.value = 15;
+                if (_isRGBW) window.ngRgbwSetMode('color');
+                updatePreview();
+            }
+        };
+
+        window.ngRgbwApply = function () {
+            if (!_idx) return;
+            var color;
+            if (_mode === 'color') {
+                var rgb = hsvToRgb(_h, _s, 1);
+                color = JSON.stringify({ m:3, t:0, r:rgb.r, g:rgb.g, b:rgb.b, cw:0, ww:0 });
+            } else {
+                var ww = Math.round(_warmth * 255);
+                var cw = Math.round((1 - _warmth) * 255);
+                color = JSON.stringify({ m:2, t:Math.round(_warmth*255), r:255, g:255, b:255, cw:cw, ww:ww });
+            }
+            var url = '/json.htm?type=command&param=setcolbrightnessvalue' +
+                      '&idx=' + _idx +
+                      '&color=' + encodeURIComponent(color) +
+                      '&brightness=' + _bright;
+            fetch(url).catch(function() {});
+            ngCloseActivePopup();
+        };
+
+        /* ── Hook ShowRGBWPopup ──────────────────────────────────────── */
+        function hookShowRGBWPopup() {
+            if (!window.ShowRGBWPopup) { setTimeout(hookShowRGBWPopup, 300); return; }
+            if (window.ShowRGBWPopup._ngHooked) return;
+            window.ShowRGBWPopup = function (idx, imgid, actualColor) {
+                _idx = idx;
+
+                // Parse current colour state
+                var col = {};
+                try {
+                    col = typeof actualColor === 'string'
+                        ? JSON.parse(actualColor) : (actualColor || {});
+                } catch (e) {}
+
+                // Mode: 1=white, 2=colour-temp, 3=colour, 4=colour+white
+                _mode = (col.m === 1 || col.m === 2) ? 'white' : 'color';
+
+                // Seed HSV from RGB channels
+                if (col.r !== undefined || col.g !== undefined || col.b !== undefined) {
+                    var hsv = rgbToHsv(col.r||0, col.g||0, col.b||0);
+                    _h = hsv.h; _s = hsv.s; _v = hsv.v;
+                    // If saturation is near zero, fall back to neutral hue 0
+                    if (_s < 0.05) _s = 0;
+                }
+
+                _warmth = col.t !== undefined ? col.t / 255 : 0.5;
+                _bright = 100;
+
+                var isRGBW = (col.ww !== undefined || col.cw !== undefined ||
+                              col.m === 2 || col.m === 4);
+
+                // Show popup → MutationObserver triggers ngOpenPopup
+                p.style.display = 'block';
+
+                // Build our UI (replaces jQWCP completely)
+                buildUI(isRGBW);
+
+                // Switch to white tab if color is in white mode
+                if (_mode === 'white' && isRGBW) {
+                    window.ngRgbwSetMode('white');
+                }
+            };
+            window.ShowRGBWPopup._ngHooked = true;
+        }
+
+        hookShowRGBWPopup();
     }
 
     function redesignRFYPopup() {

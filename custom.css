@@ -3482,42 +3482,185 @@ body.dz-light .ng-sp-track {
     flex-shrink: 0;
 }
 
-/* ── 9h-5. RGBW / Hue Color Picker Popup ─────────────────────── */
+/* ── 9h-5. RGBW / Hue Colour Picker Popup ─────────────────────── */
+/*  Nightglass replaces jQWCP with a canvas HSV wheel + sliders.    */
 
 #rgbw_popup {
-    width: 340px !important;
+    width: 300px !important;
+    padding: 0 20px 20px !important;
 }
 
-/* The injected header is just a layout container — close button
-   positions absolute to the popup; title is centered within it. */
-.ng-rgbw-header {
-    display: block;
-}
-
-/* Pad the Domoticz-generated table (color wheel + sliders) */
-#rgbw_popup > table {
-    width: 100% !important;
-    padding: 6px 20px 12px !important;
-    box-sizing: border-box !important;
-}
-
-/* Pad the color-mode icon row */
-#rgbw_popup > #ColorMode {
-    padding: 0 20px 16px !important;
-}
-
-/* Center the jQWCP widget inside its cell */
-#rgbw_popup .jQWCP-wWidget {
-    margin: 0 auto !important;
-}
-
-/* Chip-style On/Full/Night/Off buttons — full-width row layout */
-#rgbw_popup .btn-group {
-    display: flex !important;
-    flex-wrap: wrap;
+/* Mode tabs: Colour / White */
+.ng-rgbw-tabs {
+    display: flex;
     gap: 6px;
-    padding: 6px 0 4px !important;
+    margin: 12px 0 16px;
+}
+
+.ng-rgbw-tab {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--dz-border);
+    border-radius: 10px;
+    background: var(--dz-surface-2);
+    color: var(--dz-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.ng-rgbw-tab--active {
+    background: var(--dz-accent-color) !important;
+    border-color: var(--dz-accent-color) !important;
+    color: #fff !important;
+}
+
+/* Colour wheel pane */
+.ng-rgbw-pane {
+    margin-bottom: 12px;
+}
+
+.ng-rgbw-wheel-wrap {
+    display: flex;
     justify-content: center;
+}
+
+.ng-rgbw-wheel-wrap canvas {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+/* White temperature pane */
+.ng-rgbw-warmth-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 8px;
+}
+
+.ng-rgbw-warmth-wrap canvas {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+}
+
+.ng-rgbw-warmth-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--dz-text-faint);
+    padding: 4px 2px 0;
+}
+
+/* Preview swatch */
+.ng-rgbw-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0 12px;
+}
+
+.ng-rgbw-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--dz-border);
+    flex-shrink: 0;
+    background: #fff;
+    transition: background 0.1s;
+}
+
+.ng-rgbw-hex {
+    font-size: 0.78rem;
+    font-family: monospace;
+    color: var(--dz-text-muted);
+    letter-spacing: 0.03em;
+}
+
+/* Brightness slider row */
+.ng-rgbw-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.ng-rgbw-icon-dim {
+    color: var(--dz-text-faint);
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.ng-rgbw-icon-bright {
+    color: var(--dz-accent-color);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.ng-rgbw-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--dz-border);
+    outline: none;
+    cursor: pointer;
+}
+
+.ng-rgbw-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--dz-accent-color);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: grab;
+}
+
+.ng-rgbw-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--dz-accent-color);
+    cursor: grab;
+}
+
+/* Preset action chip buttons */
+.ng-rgbw-presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.ng-rgbw-preset {
+    padding: 7px 4px;
+    border: 1px solid var(--dz-border);
+    border-radius: 10px;
+    background: var(--dz-surface-2);
+    color: var(--dz-text-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.ng-rgbw-preset:hover {
+    background: var(--dz-border);
+    color: var(--dz-text);
+}
+
+.ng-rgbw-preset--off {
+    border-color: rgba(220, 53, 69, 0.35) !important;
+    color: #dc3545 !important;
+}
+
+.ng-rgbw-preset--off:hover {
+    background: rgba(220, 53, 69, 0.1) !important;
 }
 
 /* ── 9i. Tips of the Day modal ────────────────────────────────── */
