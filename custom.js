@@ -4589,6 +4589,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         /* ── State ──────────────────────────────────────────────────── */
         var _idx     = null;
+        var _subType = 'RGB';
         var _mode    = 'color';   // 'color' | 'white'
         var _isRGBW  = false;
         var _h = 0, _s = 1, _v = 1;
@@ -4694,80 +4695,119 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        /* ── Warmth bar snippet (reused in both WW-only and RGBW white tab) ── */
+        function warmthPaneHTML(canvasId) {
+            return '<div class="ng-rgbw-warmth-wrap">' +
+                   '  <canvas id="' + canvasId + '" width="240" height="36"' +
+                   '    style="display:block;border-radius:18px;touch-action:none;cursor:crosshair"></canvas>' +
+                   '</div>' +
+                   '<div class="ng-rgbw-warmth-labels">' +
+                   '  <span><i class="fa-solid fa-snowflake"></i> Cool</span>' +
+                   '  <span>Warm <i class="fa-solid fa-fire"></i></span>' +
+                   '</div>';
+        }
+
+        function brightnessRowHTML() {
+            return '<div class="ng-rgbw-slider-row">' +
+                   '  <i class="fa-solid fa-moon ng-rgbw-icon-dim"></i>' +
+                   '  <input type="range" class="ng-rgbw-slider" id="ng-rgbw-bright" min="1" max="100" value="100">' +
+                   '  <i class="fa-solid fa-sun ng-rgbw-icon-bright"></i>' +
+                   '</div>';
+        }
+
+        function presetsHTML(includeColourPresets) {
+            return '<div class="ng-rgbw-presets">' +
+                   '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'on\',this)">' +
+                   '    <i class="fa-solid fa-power-off"></i> On</button>' +
+                   (includeColourPresets ?
+                   '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'full\',this)">' +
+                   '    <i class="fa-solid fa-lightbulb"></i> Full</button>' +
+                   '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'night\',this)">' +
+                   '    <i class="fa-solid fa-moon"></i> Night</button>' : '') +
+                   '  <button class="ng-rgbw-preset ng-rgbw-preset--off" onclick="ngRgbwPreset(\'off\',this)">' +
+                   '    <i class="fa-regular fa-circle-xmark"></i> Off</button>' +
+                   '</div>';
+        }
+
         /* ── Build popup HTML ────────────────────────────────────────── */
-        function buildUI(isRGBW) {
-            _isRGBW = isRGBW;
-            p.innerHTML =
-                '<button class="ng-popup-close" onclick="ngCloseActivePopup();" aria-label="Close">' +
-                '  <i class="fa-solid fa-xmark"></i></button>' +
-                '<div class="ng-popup-title"><i class="fa-solid fa-palette"></i> Colour</div>' +
+        // subType: 'RGB' | 'RGBW' | 'RGBWW' | 'RGBWWZ' | 'WW' | 'CW' | '' (fallback=RGB)
+        function buildUI(subType) {
+            _subType = subType || 'RGB';
+            var isWWOnly  = (_subType === 'WW' || _subType === 'CW');
+            var hasWhite  = !isWWOnly && (_subType === 'RGBW' || _subType === 'RGBWW' || _subType === 'RGBWWZ');
+            _isRGBW = hasWhite;
 
-                (isRGBW ?
-                '<div class="ng-rgbw-tabs">' +
-                '  <button class="ng-rgbw-tab ng-rgbw-tab--active" data-mode="color" onclick="ngRgbwSetMode(\'color\')">' +
-                '    <i class="fa-solid fa-circle-half-stroke"></i> Colour</button>' +
-                '  <button class="ng-rgbw-tab" data-mode="white" onclick="ngRgbwSetMode(\'white\')">' +
-                '    <i class="fa-solid fa-sun"></i> White</button>' +
-                '</div>' : '') +
+            // For WW-only devices start in white mode
+            if (isWWOnly) _mode = 'white';
 
-                // Colour wheel pane
-                '<div class="ng-rgbw-pane" id="ng-rgbw-pane-color">' +
-                '  <div class="ng-rgbw-wheel-wrap">' +
-                '    <canvas id="ng-rgbw-canvas" width="'+WSIZE+'" height="'+WSIZE+'" ' +
-                '      style="border-radius:50%;touch-action:none;cursor:crosshair;display:block"></canvas>' +
-                '  </div>' +
-                '</div>' +
+            /* ── WW / CW — white-temperature only popup ── */
+            if (isWWOnly) {
+                p.innerHTML =
+                    '<button class="ng-popup-close" onclick="ngCloseActivePopup();" aria-label="Close">' +
+                    '  <i class="fa-solid fa-xmark"></i></button>' +
+                    '<div class="ng-popup-title"><i class="fa-solid fa-lightbulb"></i> White Light</div>' +
+                    '<div class="ng-rgbw-pane">' + warmthPaneHTML('ng-rgbw-warmth-canvas') + '</div>' +
+                    '<div class="ng-rgbw-preview">' +
+                    '  <div class="ng-rgbw-swatch"></div>' +
+                    '  <span class="ng-rgbw-hex">Natural</span>' +
+                    '</div>' +
+                    brightnessRowHTML() +
+                    presetsHTML(false) +
+                    '<button class="ng-sp-set-btn" onclick="ngRgbwApply()">' +
+                    '  <i class="fa-solid fa-check"></i> Set Light</button>';
 
-                // White temperature pane
-                (isRGBW ?
-                '<div class="ng-rgbw-pane" id="ng-rgbw-pane-white" style="display:none">' +
-                '  <div class="ng-rgbw-warmth-wrap">' +
-                '    <canvas id="ng-rgbw-warmth-canvas" width="240" height="32" ' +
-                '      style="display:block;border-radius:16px;touch-action:none;cursor:crosshair"></canvas>' +
-                '  </div>' +
-                '  <div class="ng-rgbw-warmth-labels">' +
-                '    <span><i class="fa-solid fa-snowflake"></i> Cool</span>' +
-                '    <span>Warm <i class="fa-solid fa-fire"></i></span>' +
-                '  </div>' +
-                '</div>' : '') +
-
-                // Colour preview swatch
-                '<div class="ng-rgbw-preview">' +
-                '  <div class="ng-rgbw-swatch"></div>' +
-                '  <span class="ng-rgbw-hex">#ffffff</span>' +
-                '</div>' +
-
-                // Brightness slider
-                '<div class="ng-rgbw-slider-row">' +
-                '  <i class="fa-solid fa-moon ng-rgbw-icon-dim"></i>' +
-                '  <input type="range" class="ng-rgbw-slider ng-rgbw-slider--bright" ' +
-                '    id="ng-rgbw-bright" min="1" max="100" value="100">' +
-                '  <i class="fa-solid fa-sun ng-rgbw-icon-bright"></i>' +
-                '</div>' +
-
-                // Preset action chips
-                '<div class="ng-rgbw-presets">' +
-                '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'on\',this)">' +
-                '    <i class="fa-solid fa-power-off"></i> On</button>' +
-                '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'full\',this)">' +
-                '    <i class="fa-solid fa-lightbulb"></i> Full</button>' +
-                '  <button class="ng-rgbw-preset" onclick="ngRgbwPreset(\'night\',this)">' +
-                '    <i class="fa-solid fa-moon"></i> Night</button>' +
-                '  <button class="ng-rgbw-preset ng-rgbw-preset--off" onclick="ngRgbwPreset(\'off\',this)">' +
-                '    <i class="fa-regular fa-circle-xmark"></i> Off</button>' +
-                '</div>' +
-
-                '<button class="ng-sp-set-btn" onclick="ngRgbwApply()">' +
-                '  <i class="fa-solid fa-check"></i> Set Colour</button>';
-
-            // Draw colour wheel
-            var wc = document.getElementById('ng-rgbw-canvas');
-            if (wc) { renderWheel(wc); attachWheelInteraction(wc); }
-
-            // Draw warmth gradient
-            if (isRGBW) {
                 var wt = document.getElementById('ng-rgbw-warmth-canvas');
                 if (wt) { drawWarmthBar(wt); attachWarmthInteraction(wt); }
+
+            /* ── RGB / RGBW / RGBWW — colour popup (with optional White tab) ── */
+            } else {
+                var colorModeActive = (_mode !== 'white');
+                p.innerHTML =
+                    '<button class="ng-popup-close" onclick="ngCloseActivePopup();" aria-label="Close">' +
+                    '  <i class="fa-solid fa-xmark"></i></button>' +
+                    '<div class="ng-popup-title"><i class="fa-solid fa-palette"></i> Colour</div>' +
+
+                    // Mode tabs — only shown for devices that have white channels too
+                    (hasWhite ?
+                    '<div class="ng-rgbw-tabs">' +
+                    '  <button class="ng-rgbw-tab' + (colorModeActive ? ' ng-rgbw-tab--active' : '') + '" data-mode="color" onclick="ngRgbwSetMode(\'color\')">' +
+                    '    <i class="fa-solid fa-circle-half-stroke"></i> Colour</button>' +
+                    '  <button class="ng-rgbw-tab' + (!colorModeActive ? ' ng-rgbw-tab--active' : '') + '" data-mode="white" onclick="ngRgbwSetMode(\'white\')">' +
+                    '    <i class="fa-solid fa-sun"></i> White</button>' +
+                    '</div>' : '') +
+
+                    // Colour wheel pane
+                    '<div class="ng-rgbw-pane" id="ng-rgbw-pane-color"' + (!colorModeActive ? ' style="display:none"' : '') + '>' +
+                    '  <div class="ng-rgbw-wheel-wrap">' +
+                    '    <canvas id="ng-rgbw-canvas" width="' + WSIZE + '" height="' + WSIZE + '"' +
+                    '      style="border-radius:50%;touch-action:none;cursor:crosshair;display:block"></canvas>' +
+                    '  </div>' +
+                    '</div>' +
+
+                    // White temperature pane (only for RGBW/RGBWW)
+                    (hasWhite ?
+                    '<div class="ng-rgbw-pane" id="ng-rgbw-pane-white"' + (colorModeActive ? ' style="display:none"' : '') + '>' +
+                    warmthPaneHTML('ng-rgbw-warmth-canvas') +
+                    '</div>' : '') +
+
+                    '<div class="ng-rgbw-preview">' +
+                    '  <div class="ng-rgbw-swatch"></div>' +
+                    '  <span class="ng-rgbw-hex">#ffffff</span>' +
+                    '</div>' +
+                    brightnessRowHTML() +
+                    presetsHTML(true) +
+                    '<button class="ng-sp-set-btn" onclick="ngRgbwApply()">' +
+                    '  <i class="fa-solid fa-check"></i> Set Colour</button>';
+
+                // Draw colour wheel
+                var wc = document.getElementById('ng-rgbw-canvas');
+                if (wc) { renderWheel(wc); attachWheelInteraction(wc); }
+
+                // Draw warmth bar if applicable
+                if (hasWhite) {
+                    var wt2 = document.getElementById('ng-rgbw-warmth-canvas');
+                    if (wt2) { drawWarmthBar(wt2); attachWarmthInteraction(wt2); }
+                }
             }
 
             // Bind brightness slider
@@ -4878,12 +4918,13 @@ document.addEventListener('DOMContentLoaded', function () {
         function sendRGBW() {
             if (!_idx) return;
             var colorObj;
-            if (_mode === 'color') {
-                var rgb = hsvToRgb(_h, _s, 1);
+            var isWWOnly = (_subType === 'WW' || _subType === 'CW');
+            if (!isWWOnly && _mode === 'color') {
                 // m=3: ColorModeRGB — valid fields: r, g, b
+                var rgb = hsvToRgb(_h, _s, 1);
                 colorObj = { m:3, t:0, r:rgb.r, g:rgb.g, b:rgb.b, cw:0, ww:0 };
             } else {
-                // m=2: ColorModeTemp — valid field: t (0=cool, 255=warm)
+                // m=2: ColorModeTemp — valid field: t (0=cool 6500K, 255=warm 2700K)
                 var t = Math.round(_warmth * 255);
                 colorObj = { m:2, t:t, r:0, g:0, b:0,
                              cw: Math.round((1 - _warmth) * 255),
@@ -4904,9 +4945,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (_idx) fetch('/json.htm?type=command&param=switchlight&idx=' + _idx + '&switchcmd=Off').catch(function(){});
                 ngCloseActivePopup();
             } else if (preset === 'full') {
-                if (_isRGBW) {
+                // Full brightness — white/neutral for WW, near-white for RGB
+                var isWW = (_subType === 'WW' || _subType === 'CW');
+                if (isWW || _isRGBW) {
                     _mode = 'white'; _warmth = 0.5; _bright = 100;
-                    window.ngRgbwSetMode('white');
+                    if (_isRGBW) window.ngRgbwSetMode('white');
+                    var wtc = document.getElementById('ng-rgbw-warmth-canvas');
+                    if (wtc) { drawWarmthBar(wtc); }
                 } else {
                     _h = 0.15; _s = 0.05; _bright = 100;
                     var wc2 = document.getElementById('ng-rgbw-canvas');
@@ -4918,6 +4963,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 sendRGBW();
                 flashBtn(btn, 'Applied');
             } else if (preset === 'night') {
+                // Warm amber dim
                 _mode = 'color'; _h = 0.08; _s = 0.85; _bright = 15;
                 var wc3 = document.getElementById('ng-rgbw-canvas');
                 if (wc3) renderWheel(wc3);
@@ -4971,20 +5017,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     ? Math.max(1, Math.min(100, parseInt(LevelInt, 10) || 100))
                     : 100;
 
-                // SubType tells us if there are white channels
-                var isRGBW = (SubType === 'RGBWW' || SubType === 'RGBWWZ' ||
-                              SubType === 'RGBW'  || SubType === 'WW' ||
-                              col.m === 2 || col.m === 4 ||
-                              col.cw !== undefined || col.ww !== undefined);
-
                 // Show popup — MutationObserver in initPopups picks this up and calls ngOpenPopup
                 p.style.display = 'block';
 
-                buildUI(isRGBW);
-
-                if (_mode === 'white' && isRGBW) {
-                    window.ngRgbwSetMode('white');
-                }
+                // Pass SubType directly so buildUI can choose the right layout
+                buildUI(SubType || 'RGB');
             };
             window.ShowRGBWPopup._ngHooked = true;
         }

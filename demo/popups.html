@@ -53,7 +53,8 @@
 
     /* RGBW demo containers get the same base style as #rgbw_popup in custom.css */
     #ng-rgbw-demo-a,
-    #ng-rgbw-demo-b {
+    #ng-rgbw-demo-b,
+    #ng-rgbw-demo-c {
       background: var(--dz-surface) !important;
       border: 1px solid var(--dz-border) !important;
       color: var(--dz-text) !important;
@@ -168,16 +169,21 @@
         <div class="ng-showcase-grid">
 
           <div class="ng-showcase-item">
-            <div class="ng-showcase-label">RGBW — colour mode</div>
-            <!-- Rendered by buildRgbwDemo() below — matches real popup exactly -->
+            <div class="ng-showcase-label">RGB — colour only</div>
             <div id="ng-rgbw-demo-a" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
-            <span class="ng-showcase-hint">canvas HSV wheel — Nightglass replaces jQWCP</span>
+            <span class="ng-showcase-hint">canvas HSV wheel — no white channels</span>
           </div>
 
           <div class="ng-showcase-item">
-            <div class="ng-showcase-label">RGBW — white temperature mode</div>
+            <div class="ng-showcase-label">RGBWW — colour + white tabs</div>
             <div id="ng-rgbw-demo-b" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
-            <span class="ng-showcase-hint">warm/cool white channel with gradient bar</span>
+            <span class="ng-showcase-hint">colour wheel + warm/cool white tab</span>
+          </div>
+
+          <div class="ng-showcase-item">
+            <div class="ng-showcase-label">WW — warm white only</div>
+            <div id="ng-rgbw-demo-c" class="pop ui-popup ui-body-b ui-overlay-shadow ui-corner-all"></div>
+            <span class="ng-showcase-hint">temperature bar only, no colour wheel</span>
           </div>
 
         </div>
@@ -240,12 +246,17 @@
   window.RFYEnableSunWind = function (on) { log('RFYEnableSunWind(' + on + ')'); };
 
   /* ── RGBW canvas demo ── */
-  function buildRgbwDemo(containerId, initialH, initialS, initialMode, isRGBW) {
+  // subType: 'RGB' | 'RGBWW' | 'WW'
+  function buildRgbwDemo(containerId, subType, initialH, initialS, initialMode) {
     var p = document.getElementById(containerId);
     if (!p) return;
 
+    var isWWOnly = (subType === 'WW' || subType === 'CW');
+    var hasWhite = !isWWOnly && (subType === 'RGBW' || subType === 'RGBWW' || subType === 'RGBWWZ');
     var WSIZE = 160, WR = WSIZE / 2;
-    var _h = initialH, _s = initialS, _mode = initialMode || 'color', _warmth = 0.3;
+    var _h = initialH, _s = initialS;
+    var _mode = isWWOnly ? 'white' : (initialMode || 'color');
+    var _warmth = 0.3;
 
     function hsvToRgb(h, s, v) {
       var r,g,b,i=Math.floor(h*6),f=h*6-i;
@@ -303,28 +314,53 @@
       }
     }
 
-    p.innerHTML =
+    var colorActive = (_mode !== 'white');
+    var titleIcon  = isWWOnly ? 'fa-lightbulb' : 'fa-palette';
+    var titleLabel = isWWOnly ? 'White Light'  : 'Colour';
+    var setLabel   = isWWOnly ? 'Set Light'    : 'Set Colour';
+
+    var html =
       '<button class="ng-popup-close" disabled style="cursor:default" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
-      '<div class="ng-popup-title"><i class="fa-solid fa-palette"></i> Colour</div>' +
-      (isRGBW ?
-        '<div class="ng-rgbw-tabs">' +
-          '<button class="ng-rgbw-tab' + (_mode==='color'?' ng-rgbw-tab--active':'') + '" data-mode="color" onclick="demoRgbwTab(\''+containerId+'\',\'color\')">' +
-            '<i class="fa-solid fa-circle-half-stroke"></i> Colour</button>' +
-          '<button class="ng-rgbw-tab' + (_mode==='white'?' ng-rgbw-tab--active':'') + '" data-mode="white" onclick="demoRgbwTab(\''+containerId+'\',\'white\')">' +
-            '<i class="fa-solid fa-sun"></i> White</button>' +
-        '</div>' : '') +
-      '<div class="ng-rgbw-pane" id="'+containerId+'-pane-color"' + (_mode==='white'?' style="display:none"':'') + '>' +
-        '<div class="ng-rgbw-wheel-wrap">' +
-          '<canvas id="'+containerId+'-canvas" width="'+WSIZE+'" height="'+WSIZE+'" style="border-radius:50%;display:block"></canvas>' +
-        '</div>' +
-      '</div>' +
-      (isRGBW ?
-        '<div class="ng-rgbw-pane" id="'+containerId+'-pane-white"' + (_mode!=='white'?' style="display:none"':'') + '>' +
+      '<div class="ng-popup-title"><i class="fa-solid ' + titleIcon + '"></i> ' + titleLabel + '</div>';
+
+    if (isWWOnly) {
+      // WW-only: just warmth bar
+      html +=
+        '<div class="ng-rgbw-pane">' +
           '<div class="ng-rgbw-warmth-wrap">' +
-            '<canvas id="'+containerId+'-warmth" width="220" height="28" style="display:block;border-radius:14px"></canvas>' +
+            '<canvas id="'+containerId+'-warmth" width="220" height="36" style="display:block;border-radius:18px"></canvas>' +
           '</div>' +
           '<div class="ng-rgbw-warmth-labels"><span><i class="fa-solid fa-snowflake"></i> Cool</span><span>Warm <i class="fa-solid fa-fire"></i></span></div>' +
-        '</div>' : '') +
+        '</div>';
+    } else {
+      // RGB / RGBWW: colour wheel with optional white tab
+      if (hasWhite) {
+        html +=
+          '<div class="ng-rgbw-tabs">' +
+            '<button class="ng-rgbw-tab' + (colorActive?' ng-rgbw-tab--active':'') + '" data-mode="color" onclick="demoRgbwTab(\''+containerId+'\',\'color\')">' +
+              '<i class="fa-solid fa-circle-half-stroke"></i> Colour</button>' +
+            '<button class="ng-rgbw-tab' + (!colorActive?' ng-rgbw-tab--active':'') + '" data-mode="white" onclick="demoRgbwTab(\''+containerId+'\',\'white\')">' +
+              '<i class="fa-solid fa-sun"></i> White</button>' +
+          '</div>';
+      }
+      html +=
+        '<div class="ng-rgbw-pane" id="'+containerId+'-pane-color"' + (!colorActive?' style="display:none"':'') + '>' +
+          '<div class="ng-rgbw-wheel-wrap">' +
+            '<canvas id="'+containerId+'-canvas" width="'+WSIZE+'" height="'+WSIZE+'" style="border-radius:50%;display:block"></canvas>' +
+          '</div>' +
+        '</div>';
+      if (hasWhite) {
+        html +=
+          '<div class="ng-rgbw-pane" id="'+containerId+'-pane-white"' + (colorActive?' style="display:none"':'') + '>' +
+            '<div class="ng-rgbw-warmth-wrap">' +
+              '<canvas id="'+containerId+'-warmth" width="220" height="36" style="display:block;border-radius:18px"></canvas>' +
+            '</div>' +
+            '<div class="ng-rgbw-warmth-labels"><span><i class="fa-solid fa-snowflake"></i> Cool</span><span>Warm <i class="fa-solid fa-fire"></i></span></div>' +
+          '</div>';
+      }
+    }
+
+    html +=
       '<div class="ng-rgbw-preview"><div class="ng-rgbw-swatch"></div><span class="ng-rgbw-hex">#4e9af1</span></div>' +
       '<div class="ng-rgbw-slider-row">' +
         '<i class="fa-solid fa-moon ng-rgbw-icon-dim"></i>' +
@@ -333,11 +369,14 @@
       '</div>' +
       '<div class="ng-rgbw-presets">' +
         '<button class="ng-rgbw-preset" onclick="demoLog(\'On\')"><i class="fa-solid fa-power-off"></i> On</button>' +
-        '<button class="ng-rgbw-preset" onclick="demoLog(\'Full\')"><i class="fa-solid fa-lightbulb"></i> Full</button>' +
-        '<button class="ng-rgbw-preset" onclick="demoLog(\'Night\')"><i class="fa-solid fa-moon"></i> Night</button>' +
+        (!isWWOnly ?
+          '<button class="ng-rgbw-preset" onclick="demoLog(\'Full\')"><i class="fa-solid fa-lightbulb"></i> Full</button>' +
+          '<button class="ng-rgbw-preset" onclick="demoLog(\'Night\')"><i class="fa-solid fa-moon"></i> Night</button>' : '') +
         '<button class="ng-rgbw-preset ng-rgbw-preset--off" onclick="demoLog(\'Off\')"><i class="fa-regular fa-circle-xmark"></i> Off</button>' +
       '</div>' +
-      '<button class="ng-sp-set-btn" onclick="demoLog(\'Set Colour\')"><i class="fa-solid fa-check"></i> Set Colour</button>';
+      '<button class="ng-sp-set-btn" onclick="demoLog(\'' + setLabel + '\')"><i class="fa-solid fa-check"></i> ' + setLabel + '</button>';
+
+    p.innerHTML = html;
 
     var wc = document.getElementById(containerId + '-canvas');
     if (wc) { drawWheel(wc); drawCursor(wc); }
@@ -366,8 +405,9 @@
   };
 
   // Build RGBW demos immediately (no dependency on custom.js features)
-  buildRgbwDemo('ng-rgbw-demo-a', 0.58, 0.85, 'color', true);   // blue-ish, RGBW
-  buildRgbwDemo('ng-rgbw-demo-b', 0.58, 0.0,  'white', true);   // white mode, RGBW
+  buildRgbwDemo('ng-rgbw-demo-a', 'RGB',   0.58, 0.85, 'color');  // RGB: colour wheel only
+  buildRgbwDemo('ng-rgbw-demo-b', 'RGBWW', 0.58, 0.85, 'color'); // RGBWW: colour + white tabs
+  buildRgbwDemo('ng-rgbw-demo-c', 'WW',    0,    0,    'white'); // WW: white-only
 
   /* ── Init arc previews once Feature 9 has redesigned the popups ── */
   function tryInit() {
