@@ -2422,9 +2422,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    window._dzExtraProcessors = window._dzExtraProcessors || [];
-    window._dzExtraProcessors.push(addSparklines);
-
+    // addSparklines runs on page load and route changes only.
+    // NOT registered in _dzExtraProcessors to avoid running on every icon-burst
+    // and flooding Domoticz with param=graph seed requests.
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', addSparklines);
     } else {
@@ -6352,20 +6352,23 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function navigateToDevice(device) {
+        var route = deviceRoute(device);
         closePalette();
-        // Try to scroll to card if it's already on the current page
-        var tbl = document.getElementById('itemtable' + device.idx);
-        var card = tbl && tbl.closest
-            ? tbl.closest('div.item.itemBlock, .itemBlock > div.item')
-            : null;
-        if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            card.classList.add('dz-flash-on');
-            setTimeout(function () { card.classList.remove('dz-flash-on'); }, 700);
-        } else {
-            // Navigate to the correct Domoticz type page (hash is the path, no leading #)
-            window.location.hash = deviceRoute(device);
-        }
+        // Always navigate to the device's type page so the user lands in the right section.
+        // Use Angular's $location if available (fires $routeChangeSuccess properly);
+        // fall back to direct hash assignment.
+        setTimeout(function () {
+            try {
+                var injector = window.angular && angular.element(document.body).injector();
+                var $location  = injector && injector.get('$location');
+                var $rootScope = injector && injector.get('$rootScope');
+                if ($location && $rootScope) {
+                    $rootScope.$apply(function () { $location.path(route); });
+                    return;
+                }
+            } catch (e) {}
+            window.location.hash = route;
+        }, 10); // defer past closePalette's synchronous work
     }
 
     function onActivate(device, el, stateEl, iconWrap, sliderRow) {
@@ -6449,11 +6452,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var footer = document.createElement('div');
         footer.id = 'dz-cmd-footer';
+        var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+        var modKey = isMac ? '\u2318' : 'Ctrl';
         footer.innerHTML =
+            '<span class="dz-cmd-footer-tip"><kbd>' + modKey + '</kbd><kbd>K</kbd> open\u202fanywhere</span>' +
+            '<span class="dz-cmd-footer-right">' +
             '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> navigate</span>' +
             '<span><kbd>\u21b5</kbd> toggle</span>' +
             '<span><kbd>\u21e7\u21b5</kbd> go\u202fto\u202fpage</span>' +
-            '<span><kbd>Esc</kbd> close</span>';
+            '<span><kbd>Esc</kbd> close</span>' +
+            '</span>';
         box.appendChild(footer);
 
         _overlay.appendChild(box);
@@ -6533,15 +6541,39 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) { setTimeout(hookAngular, 600); }
     }
 
+    // ── Navbar badge ───────────────────────────────────────────────
+    // Inject a small Ctrl+K pill next to the theme toggle so the feature
+    // is discoverable from the main page.
+
+    function injectNavBadge() {
+        if (document.getElementById('dz-cmd-nav-badge')) return;
+        var inner = document.querySelector('.navbar-inner, .navbar-right, .nav.pull-right');
+        if (!inner) { setTimeout(injectNavBadge, 800); return; }
+        var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+        var badge = document.createElement('span');
+        badge.id = 'dz-cmd-nav-badge';
+        badge.title = 'Command palette (' + (isMac ? '\u2318' : 'Ctrl') + '+K)';
+        badge.innerHTML =
+            '<i class="fa-solid fa-magnifying-glass"></i>' +
+            '<kbd>' + (isMac ? '\u2318' : 'Ctrl') + '</kbd>' +
+            '<kbd>K</kbd>';
+        badge.addEventListener('click', function () {
+            _overlay ? closePalette() : openPalette();
+        });
+        inner.appendChild(badge);
+    }
+
     // ── Init ───────────────────────────────────────────────────────
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             setTimeout(fetchAll, 800);
+            setTimeout(injectNavBadge, 600);
             hookAngular();
         });
     } else {
         setTimeout(fetchAll, 800);
+        setTimeout(injectNavBadge, 600);
         hookAngular();
     }
 })();
