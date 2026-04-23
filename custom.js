@@ -635,6 +635,202 @@ if (document.readyState === 'loading') {
         return false;
     }
 
+    /* -- Angular scope helper: get the device object for a DOM node --
+       Walks up the DOM at click-time (lazy) so there are no race
+       conditions with Angular's multi-cycle render.                  */
+    function getDeviceFromIcon(el) {
+        if (!window.angular) return null;
+        var node = el;
+        while (node && node !== document.body) {
+            try {
+                var scope = angular.element(node).scope();
+                if (scope) {
+                    /* dzLightWidget exposes device on ctrl.device or
+                       directly as scope.device / scope.item          */
+                    var d = (scope.ctrl && scope.ctrl.device) ||
+                             scope.device || scope.item || scope.widget;
+                    if (d && d.Type !== undefined) return d;
+                }
+            } catch (e) {}
+            node = node.parentElement;
+        }
+        return null;
+    }
+
+    /* -- Determines whether clicking the device icon should optimistically
+       swap the on/off color before the API response arrives.
+       Only true for devices where the click sends a genuine binary
+       toggle command (isActive ? Off : On).
+       Source reference: www/app/widgets/dzLightWidget.js             */
+    function isDirectToggle(d) {
+        if (!d) return false;
+
+        // Only light-family types — everything else (Temperature, Humidity,
+        // Wind, Rain, UV, P1, General…) is a read-only utility/sensor widget.
+        // Scenes and Groups are excluded: they render two separate on/off
+        // action buttons; the single icon does not represent toggleable state.
+        var lightTypes = ['Light/Switch', 'Lighting 1', 'Lighting 2',
+                          'Lighting 5', 'Lighting 6', 'Color Switch',
+                          'Chime', 'Home Confort'];
+        if (lightTypes.indexOf(d.Type) < 0) return false;
+
+        // Read-only sensors — isClickable() returns false
+        var readOnly = ['Door Contact', 'Contact', 'Motion Sensor', 'Dusk Sensor'];
+        if (readOnly.indexOf(d.SwitchType) >= 0) return false;
+
+        // Push On / Push Off always send a fixed command, they don't toggle state
+        if (d.SwitchType === 'Push On Button' || d.SwitchType === 'Push Off Button') return false;
+
+        // Doorbell — momentary push signal, not a persistent on/off state
+        if (d.SwitchType === 'Doorbell') return false;
+
+        // X10 Siren / Smoke Detector — alarm signals, not meaningful on/off toggles
+        if (d.SwitchType === 'X10 Siren' || d.SwitchType === 'Smoke Detector') return false;
+
+        // Security devices — complex arm/disarm logic, not a simple on/off flip
+        if (d.Type === 'Security') return false;
+
+        // TPI only active within unit range 64–95
+        if (d.SwitchType === 'TPI' && (d.Unit < 64 || d.Unit > 95)) return false;
+
+        // Fan subtypes → opens specialized popup
+        if (d.SubType) {
+            var sub = d.SubType;
+            if (sub.indexOf('Itho')         === 0 || sub.indexOf('Orcon')       === 0 ||
+                sub.indexOf('Lucci Air DC') === 0 || sub.indexOf('Lucci')       === 0 ||
+                sub.indexOf('Westinghouse') === 0 || sub.indexOf('Falmec')      === 0) {
+                return false;
+            }
+        }
+
+        // Thermostat 3 → ShowTherm3Popup
+        if (d.Type === 'Thermostat 3') return false;
+
+        // RGB / RGBW dimmers → ShowRGBWPopup; state changes come from the
+        // dialog and are reflected by the MutationObserver on img src change —
+        // no optimistic toggle needed on the icon click itself
+        var dimmerTypes = ['Dimmer', 'Blinds Percentage', 'Blinds % + Stop', 'TPI'];
+        if (dimmerTypes.indexOf(d.SwitchType) >= 0) {
+            var isRGB = d.SubType &&
+                        (d.SubType.indexOf('RGB') >= 0 || d.SubType.indexOf('WW') >= 0);
+            if (isRGB) return false;
+            // Non-RGB dimmers fall through: clicking them does toggle on/off
+        }
+
+        // Selector → level-based, not a binary on/off toggle
+        if (d.SwitchType === 'Selector') return false;
+
+        // Blinds (all variants) → directional (up/down/stop), not on/off
+        if (d.SwitchType && d.SwitchType.indexOf('Blinds') >= 0) return false;
+        if (d.SwitchType === 'Venetian Blinds US' ||
+            d.SwitchType === 'Venetian Blinds EU') return false;
+
+        // Everything else in the light-family: standard On/Off switches,
+        // Door Lock / Door Lock Inverted, non-RGB dimmers, Media Player, Chime
+        return true;
+    }
+
+    /* ── SVG floorplan icon replacement ───────────────────────────
+       Domoticz floorplans render device icons as SVG <image> elements
+       (xlink:href), not HTML <img> (src).  We replace them with SVG
+       <foreignObject> containers holding FA <i> elements so the icon
+       set stays consistent with every other page.
+       When Domoticz updates a device's state it replaces the entire
+       <image> element (not just its href), so the MutationObserver
+       childList path already handles live updates.                    */
+
+    var XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+    function getSVGHref(el) {
+        return el.getAttribute('href') ||
+               el.getAttributeNS(XLINK_NS, 'href') ||
+               el.getAttribute('xlink:href') || '';
+    }
+
+    function processSVGImageEl(el) {
+        if (!el || el.nodeName.toLowerCase() !== 'image') return false;
+        if (el.getAttribute('data-dz-replaced') ||
+            el.getAttribute('data-dz-skipped'))  return false;
+
+        var src = getSVGHref(el);
+        if (!src || src.indexOf('{{') !== -1) return false;
+
+        if (shouldSkip(src)) {
+            el.setAttribute('data-dz-skipped', 'true');
+            return false;
+        }
+
+        var resolved = resolveIcon(src);
+        if (!resolved) {
+            el.setAttribute('data-dz-skipped', 'true');
+            return false;
+        }
+
+        var w      = parseFloat(el.getAttribute('width')  || 32);
+        var h      = parseFloat(el.getAttribute('height') || w);
+        var x      = parseFloat(el.getAttribute('x') || 0);
+        var y      = parseFloat(el.getAttribute('y') || 0);
+        var iconPx = Math.round(Math.min(w, h) * 0.72);
+
+        // Visually hide the original but keep it for event bubbling
+        el.style.opacity      = '0';
+        el.style.pointerEvents = 'none';
+        el.setAttribute('data-dz-replaced', 'true');
+        el.setAttribute('data-dz-orig-href', src);
+
+        // <foreignObject> hosts an HTML <i> inside SVG
+        var fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        fo.setAttribute('x',       x);
+        fo.setAttribute('y',       y);
+        fo.setAttribute('width',   w);
+        fo.setAttribute('height',  h);
+        fo.setAttribute('overflow', 'visible');
+        fo.setAttribute('class',   'dz-fp-icon-wrap');
+
+        // Copy interactive attributes so floorplan device popups still trigger
+        ['onclick', 'onmouseover', 'onmouseout', 'ontouchstart', 'ontouchend'].forEach(function (a) {
+            var v = el.getAttribute(a);
+            if (v) fo.setAttribute(a, v);
+        });
+        var cStyle = (el.getAttribute('style') || '').match(/cursor\s*:\s*([^;]+)/);
+        fo.style.cursor = cStyle ? cStyle[1].trim() : 'pointer';
+
+        var iEl = document.createElement('i');
+        iEl.className = resolved.cls;
+        if (resolved.colorOn)  iEl.setAttribute('data-dz-color-on',  resolved.colorOn);
+        if (resolved.colorOff) iEl.setAttribute('data-dz-color-off', resolved.colorOff);
+        iEl.setAttribute('data-dz-state', resolved.color === resolved.colorOn ? 'on' : 'off');
+        iEl.style.cssText = [
+            'font-size:'    + iconPx + 'px',
+            'color:'        + (resolved.color || '#b0b3c6'),
+            'width:'        + w + 'px',
+            'height:'       + h + 'px',
+            'display:flex',
+            'align-items:center',
+            'justify-content:center',
+            'pointer-events:none',
+            'box-sizing:border-box',
+            'margin:0',
+            'padding:0'
+        ].join(';');
+
+        fo.appendChild(iEl);
+        iconMap.set(el, fo);
+
+        el.parentNode.insertBefore(fo, el.nextSibling);
+        return true;
+    }
+
+    function replaceSVGIcons(root) {
+        if (!root || !root.querySelectorAll) return;
+        /* querySelector('image') selects SVG <image> elements */
+        var svgImgs = root.querySelectorAll(
+            'image:not([data-dz-replaced]):not([data-dz-skipped])');
+        for (var i = 0; i < svgImgs.length; i++) {
+            processSVGImageEl(svgImgs[i]);
+        }
+    }
+
     /* -- Core replacement function -------------------------------- */
 
     function getSizeClass(img, src) {
@@ -822,13 +1018,24 @@ if (document.readyState === 'loading') {
             icon.setAttribute('data-dz-state', resolved.color === resolved.colorOn ? 'on' : 'off');
             /* Optimistic toggle: immediately swap color on click so the user
                sees instant visual feedback before Angular/API round-trip.
-               Skip for action buttons (popup on/off, scene/group/blind
-               2nd/3rd icons) — those are not toggleable state icons.       */
+               Only fires for devices whose click actually sends a binary
+               on/off command — checked lazily via Angular scope so we
+               don't fight Angular's multi-cycle render timing.
+               Skipped for:
+                 • action buttons (popup/blind 2nd-3rd icon cells)
+                 • read-only sensors (Contact, Motion, Dusk)
+                 • popup devices (RGBW, fans, Thermostat 3)
+                 • directional devices (blinds, selectors)
+                 • utility/temp/weather/sensor widgets (no SwitchType)  */
             if (!isActionButton(img)) {
                 icon.addEventListener('click', function () {
                     var onColor  = this.getAttribute('data-dz-color-on');
                     var offColor = this.getAttribute('data-dz-color-off');
                     if (!onColor || !offColor) return;
+
+                    // Check device type from Angular scope at click-time
+                    if (!isDirectToggle(getDeviceFromIcon(this))) return;
+
                     var nowOn = this.getAttribute('data-dz-state') === 'on';
                     this.setAttribute('data-dz-state', nowOn ? 'off' : 'on');
                     this.style.color = nowOn ? offColor : onColor;
@@ -928,6 +1135,15 @@ if (document.readyState === 'loading') {
            and re-attaches them shortly after. Cleaning up too eagerly
            causes icons to disappear on those rows. */
         if (node.isConnected) return;
+
+        /* SVG <image> (floorplan): remove the associated <foreignObject> */
+        if (node.nodeName && node.nodeName.toLowerCase() === 'image') {
+            var fo = iconMap.get(node);
+            if (fo && fo.parentNode) fo.parentNode.removeChild(fo);
+            iconMap.delete(node);
+            return;
+        }
+
         if (node.tagName === 'IMG') {
             iconMap.delete(node);
         }
@@ -1007,6 +1223,9 @@ if (document.readyState === 'loading') {
         if (recovered) {
             processNewImages(root);
         }
+
+        /* --- Pass 3: SVG <image> elements on floorplan pages --- */
+        replaceSVGIcons(root);
     }
 
     /* -- Helper: copy relevant attributes from img to icon -------- */
@@ -1078,16 +1297,26 @@ if (document.readyState === 'loading') {
            when the MutationObserver fires, so this usually succeeds.          */
         try {
             if (!node || node.nodeType !== 1) return;
+            /* SVG <image> element (floorplan device icon) */
+            if (node.nodeName && node.nodeName.toLowerCase() === 'image') {
+                processSVGImageEl(node);
+                return;
+            }
             if (node.tagName === 'IMG') {
                 if (node.parentNode) processImg(node);
                 return;
             }
             processNewImages(node);
+            replaceSVGIcons(node);
         } catch (_) { /* ignore — fallback below */ }
         /* Also schedule an async pass as safety net in case Angular hasn't
            finished compiling the node's children yet.                       */
         setTimeout(function () {
             if (!node || node.nodeType !== 1) return;
+            if (node.nodeName && node.nodeName.toLowerCase() === 'image') {
+                processSVGImageEl(node);
+                return;
+            }
             if (node.tagName === 'IMG') {
                 if (node.parentNode) processImg(node);
                 return;
@@ -1260,6 +1489,104 @@ if (document.readyState === 'loading') {
     /* Expose scheduleBurst so code outside this IIFE (e.g. tab-switch
        observers in the processCards block) can trigger a replacement pass. */
     window._dzScheduleBurst = scheduleBurst;
+
+    /* Expose a device-icon lookup for other modules (e.g. command palette).
+       Given a Domoticz device object with TypeImg + Status fields, returns
+       { icon: 'fa-solid fa-...', color: '#rrggbb' } or null.               */
+    window._dzIconForDevice = function (device) {
+        var typeImg = device.TypeImg || '';
+        // Build a synthetic image path that parseDeviceSrc / resolveIcon can parse
+        var on   = !!(device.Status && (
+            ['On','Group On','Chime','Panic','Mixed'].indexOf(device.Status) >= 0 ||
+            device.Status.indexOf('Set ') === 0));
+        var suffix = on ? '_On' : '_Off';
+        var src = 'images/' + typeImg + '48' + suffix + '.png';
+        var r = resolveIcon(src);
+        if (r && r.cls) {
+            // strip dz-fa-device / dz-wind helper classes — just the FA classes
+            var fa = r.cls.split(' ').filter(function (c) {
+                return c.indexOf('fa-') === 0 || c === 'fa-solid' || c === 'fa-regular';
+            }).join(' ');
+            return { icon: fa || r.cls, color: r.color };
+        }
+        return null;
+    };
+
+    /* ── Floorplan popup: immediate icon replacement + theme patch ───
+       Device.popupRedraw recreates the popup SVG content each time it
+       is shown, including new <image> elements for the device icon.
+       The MutationObserver won't see these (they're re-drawn inside an
+       already-tracked subtree), so we get a 600–2000 ms delay before
+       the FA icon appears.  We patch popupRedraw to call replaceSVGIcons
+       synchronously immediately after Domoticz finishes drawing.
+
+       We also patch Device.checkDefs to overwrite the PopupGradient stop
+       colors with themed values right after Domoticz creates them.         */
+    function patchFloorplanPopup() {
+        if (typeof Device === 'undefined' || !Device.popupRedraw || !Device.checkDefs) {
+            setTimeout(patchFloorplanPopup, 400);
+            return;
+        }
+
+        /* ── Theme the SVG gradient defs ──────────────────────────── */
+        var _origCheckDefs = Device.checkDefs;
+        Device.checkDefs = function () {
+            _origCheckDefs.apply(this, arguments);
+            applyPopupGradient();
+        };
+
+        /* ── Immediate icon replacement on popup open ─────────────── */
+        var _origRedraw = Device.popupRedraw;
+        Device.popupRedraw = function (target) {
+            _origRedraw.apply(this, arguments);
+            var el = document.getElementById(target + '_Detail');
+            if (el) {
+                /* Remove stale data-dz-replaced marks so processSVGImageEl
+                   re-processes icons that Domoticz just redrew.             */
+                var old = el.querySelectorAll('image[data-dz-replaced]');
+                for (var i = 0; i < old.length; i++) {
+                    old[i].removeAttribute('data-dz-replaced');
+                    old[i].removeAttribute('data-dz-skipped');
+                    old[i].style.opacity = '';
+                    /* Remove associated <foreignObject> so we don't duplicate */
+                    var fo = iconMap.get(old[i]);
+                    if (fo && fo.parentNode) fo.parentNode.removeChild(fo);
+                    iconMap.delete(old[i]);
+                }
+                replaceSVGIcons(el);
+            }
+        };
+    }
+
+    function applyPopupGradient() {
+        var defsEl = document.getElementById('DeviceDefs');
+        if (!defsEl) return;
+        var grad = document.getElementById('PopupGradient');
+        if (!grad) return;
+        // Match --dz-surface-2 token values: dark #2a2b35, light #f5f6fa
+        var isDark = !document.body.classList.contains('dz-light');
+        var stop1 = isDark ? '#2a2b35' : '#f5f6fa';
+        var stop2 = isDark ? '#23252f' : '#edf0f5';
+        var stops = grad.querySelectorAll('stop');
+        if (stops[0]) stops[0].style.cssText = 'stop-color:' + stop1 + ';stop-opacity:1';
+        if (stops[1]) stops[1].style.cssText = 'stop-color:' + stop2 + ';stop-opacity:1';
+    }
+
+    /* Re-apply gradient when dark/light mode is toggled.
+       applyHighchartsTheme is the shared hook called by the dark/light toggle. */
+    (function () {
+        var _origHC = window.applyHighchartsTheme;
+        window.applyHighchartsTheme = function (isDark) {
+            if (_origHC) _origHC.apply(this, arguments);
+            applyPopupGradient();
+        };
+    }());
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(patchFloorplanPopup, 300); });
+    } else {
+        setTimeout(patchFloorplanPopup, 300);
+    }
 })();
 
 
@@ -2050,7 +2377,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function tryNextSensor(idx, wrap, si) {
         if (si >= SENSORS.length) return;
         var url = BASE + 'json.htm?type=command&param=graph&sensor=' + SENSORS[si] + '&idx=' + idx + '&range=day';
-        fetch(url, { credentials: 'same-origin' })
+        fetch(url, { credentials: 'same-origin', cache: 'no-store' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var result = data && data.result;
@@ -2117,15 +2444,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    window._dzExtraProcessors = window._dzExtraProcessors || [];
-    window._dzExtraProcessors.push(addSparklines);
+    // addSparklines is NOT in _dzExtraProcessors (avoids flooding param=graph calls).
+    // It runs on DOMContentLoaded (with retries, since Angular renders after DOMContentLoaded),
+    // on hashchange, and on Angular's $routeChangeSuccess.
+    function scheduleSparklineInit() {
+        // Three retries to catch Angular's lazy rendering on initial load / route change
+        setTimeout(addSparklines, 400);
+        setTimeout(addSparklines, 1200);
+        setTimeout(addSparklines, 2500);
+    }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', addSparklines);
+        document.addEventListener('DOMContentLoaded', scheduleSparklineInit);
     } else {
-        addSparklines();
+        scheduleSparklineInit();
     }
-    window.addEventListener('hashchange', function () { setTimeout(addSparklines, 500); });
+    window.addEventListener('hashchange', scheduleSparklineInit);
 
     // ── Sparkline Auto-Refresh ────────────────────────────────────────
     // Re-fetches a device's sparkline data when its displayed value changes,
@@ -2153,16 +2487,17 @@ document.addEventListener('DOMContentLoaded', function () {
         if (lastRefresh[idx] && (now - lastRefresh[idx]) < REFRESH_COOLDOWN) return;
         lastRefresh[idx] = now;
 
-        var card = findCardByIdx(idx);
-        if (!card) return;
-        var wrap = card.querySelector('.dz-sparkline-wrap');
-        if (!wrap) return;
+        // Guard: only fetch for cards that already have a sparkline wrap.
+        // Do NOT capture card/wrap here — Angular can re-render the card while
+        // the HTTP request is in flight, leaving those references stale/detached.
+        var guardCard = findCardByIdx(idx);
+        if (!guardCard || !guardCard.querySelector('.dz-sparkline-wrap')) return;
 
         (function fetchHour(si) {
             if (si >= SENSORS.length) return;
             var url = BASE + 'json.htm?type=command&param=graph&sensor=' + SENSORS[si] +
                       '&idx=' + idx + '&range=hour';
-            fetch(url, { credentials: 'same-origin' })
+            fetch(url, { credentials: 'same-origin', cache: 'no-store' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     var result = data && data.result;
@@ -2177,11 +2512,43 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (vals.length < 2) { fetchHour(si + 1); return; }
                     if (vals.length > MAX_POINTS) vals = vals.slice(vals.length - MAX_POINTS);
                     cache[idx] = vals;
+                    // Re-look up card and wrap from live DOM — the pre-fetch
+                    // reference (guardCard) may now be detached/stale.
+                    var card = findCardByIdx(idx);
+                    if (!card) return;
+                    var wrap = card.querySelector('.dz-sparkline-wrap');
+                    if (!wrap) {
+                        // Wrap was removed while request was in flight — re-insert.
+                        card.style.position = 'relative';
+                        wrap = document.createElement('div');
+                        wrap.className = 'dz-sparkline-wrap';
+                        card.insertBefore(wrap, card.firstChild);
+                    }
                     wrap.innerHTML = svgSparkline(vals, idx);
                     wrap.style.display = '';
                 })
                 .catch(function () { fetchHour(si + 1); });
         })(0);
+    }
+
+    // Read the current bigtext value from the DOM and append to cache — no HTTP.
+    function appendFromBigtext(idx, td) {
+        if (!cache[idx]) return;
+        var text = td ? (td.textContent || td.innerText || '') : '';
+        var val = parseSparklineValue(text);
+        if (isNaN(val)) return;
+        cache[idx].push(val);
+        if (cache[idx].length > MAX_POINTS) cache[idx].splice(0, cache[idx].length - MAX_POINTS);
+        lastRefresh[idx] = Date.now();
+        var snap = cache[idx].slice();
+        setTimeout(function () {
+            var card = findCardByIdx(idx);
+            if (!card) return;
+            var wrap = card.querySelector('.dz-sparkline-wrap');
+            if (!wrap) return;
+            wrap.innerHTML = svgSparkline(snap, idx);
+            wrap.style.display = '';
+        }, 0);
     }
 
     // Watch for bigtext mutations (Angular rewrites text nodes when a device updates)
@@ -2203,14 +2570,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     : null;
                 if (!card) continue;
                 var idx = getCardIdx(card);
-                if (idx) refreshSingle(idx);
+                // Use DOM value directly — zero HTTP calls
+                if (idx) appendFromBigtext(idx, td);
             }
         });
         if (!document.body) return;
         _sparkObs.observe(document.body, { subtree: true, childList: true });
     }
 
-    // Periodic safety net: refresh all visible sparklines every 5 minutes
+    // Safety-net: re-fetch graph data every 10 min as absolute fallback.
+    // Normal updates come from device_update (WebSocket) + bigtext DOM observer.
     function schedulePeriodicRefresh() {
         setInterval(function () {
             var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
@@ -2220,7 +2589,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var idx = getCardIdx(cards[c]);
                 if (idx) refreshSingle(idx);
             }
-        }, 5 * 60 * 1000);
+        }, 10 * 60 * 1000); // 10-min absolute fallback only
     }
 
     if (document.readyState === 'loading') {
@@ -2229,6 +2598,151 @@ document.addEventListener('DOMContentLoaded', function () {
         startSparklineObserver();
     }
     schedulePeriodicRefresh();
+
+    // ── WebSocket-driven sparkline updates ───────────────────────────
+    // Appends new sensor values directly from Angular's device_update event
+    // (broadcast whenever Domoticz's WebSocket feed delivers a device change),
+    // completely replacing the HTTP-fetch path for subsequent data points.
+
+    function parseSparklineValue(data) {
+        // Extracts the leading numeric value from strings like "21.5 C",
+        // "45 %", "250 Watt", "1.234 kWh", etc.  Returns NaN for non-numeric
+        // payloads like "On" / "Off" so those are silently skipped.
+        if (!data) return NaN;
+        var m = String(data).match(/^-?[\d.]+/);
+        return m ? parseFloat(m[0]) : NaN;
+    }
+
+    function wsAppendSparkline(device) {
+        var idx = String(device.idx || device.ID || '');
+        if (!idx || !cache[idx]) return; // only update sparklines already seeded with history
+
+        var val = parseSparklineValue(device.Data || '');
+        if (isNaN(val)) return;
+
+        // Append and trim rolling window
+        cache[idx].push(val);
+        if (cache[idx].length > MAX_POINTS) cache[idx].splice(0, cache[idx].length - MAX_POINTS);
+
+        // Update lastRefresh immediately so the periodic-refresh path won't
+        // fire an HTTP fetch for 30 s after this real-time update.
+        lastRefresh[idx] = Date.now();
+
+        // Defer DOM update to AFTER Angular's digest cycle.  The $on handler
+        // fires while Angular is still digesting; updating innerHTML now can
+        // be overwritten when Angular finishes re-rendering the card bindings.
+        // setTimeout(fn, 0) lets Angular finish first.
+        var snapCache = cache[idx].slice(); // snapshot so late mutations don't affect this paint
+        setTimeout(function () {
+            var card = findCardByIdx(idx);
+            if (!card) return;
+            var wrap = card.querySelector('.dz-sparkline-wrap');
+            if (!wrap) {
+                // Angular re-rendered the card and removed our wrap — re-insert it
+                card.style.position = 'relative';
+                wrap = document.createElement('div');
+                wrap.className = 'dz-sparkline-wrap';
+                card.insertBefore(wrap, card.firstChild);
+            }
+            wrap.innerHTML = svgSparkline(snapCache, idx);
+            wrap.style.display = '';
+        }, 0);
+    }
+
+    function refreshAllVisible() {
+        // Refresh every visible sparkline card via HTTP (respects REFRESH_COOLDOWN).
+        // Called on time_update (~60 s) so sparklines stay fresh even when
+        // device_update events are not broadcast for sensor-type devices.
+        var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        for (var c = 0; c < cards.length; c++) {
+            var wrap = cards[c].querySelector('.dz-sparkline-wrap');
+            if (!wrap || wrap.style.display === 'none') continue;
+            var idx = getCardIdx(cards[c]);
+            if (idx) refreshSingle(idx);
+        }
+    }
+
+    // Flash a device card when it receives a WebSocket update.
+    // Works for ALL device types (sensors included), not just those whose icon src changes.
+    var _flashTs = {}; // idx → last flash timestamp (prevents rapid re-flashing)
+    var FLASH_MIN_INTERVAL = 1500; // ms
+
+    function wsFlashCard(device) {
+        var idx = String(device.idx || device.ID || '');
+        if (!idx) return;
+        var now = Date.now();
+        if (_flashTs[idx] && now - _flashTs[idx] < FLASH_MIN_INTERVAL) return;
+        _flashTs[idx] = now;
+
+        var s = device.Status || '';
+        var on = (['On', 'Group On', 'Chime', 'Panic', 'Mixed'].indexOf(s) >= 0 ||
+                  s.indexOf('Set ') === 0 || s.indexOf('NightMode') === 0 || s.indexOf('Disco ') === 0);
+        // Sensors have no binary state — always use the positive (blue) flash
+        var hasBinary = (device.Type === 'Scene' || device.Type === 'Group' ||
+                         (device.SwitchType && device.SwitchType.length > 0));
+        var cls = (!hasBinary || on) ? 'dz-flash-on' : 'dz-flash-off';
+
+        setTimeout(function () {
+            // Primary lookup: standard dashboard/switch card via itemtable{idx}
+            var flashEl = findCardByIdx(idx);
+
+            // Always use the outermost itemBlock so outline isn't clipped by inner overflow
+            if (flashEl && !flashEl.classList.contains('itemBlock')) {
+                var outer = flashEl.closest ? flashEl.closest('.itemBlock') : flashEl.parentElement;
+                if (outer) flashEl = outer;
+            }
+
+            // Fallback: weather widgets use id="{idx}" directly inside #weatherwidgets
+            if (!flashEl) {
+                var byId = document.getElementById(idx);
+                if (byId) flashEl = byId;
+            }
+
+            // Fallback: any element whose id ends with the idx (covers various page templates)
+            if (!flashEl) {
+                var any = document.querySelector('[id$="_' + idx + '"], [id="domoticz_' + idx + '"]');
+                if (any) flashEl = any;
+            }
+
+            if (!flashEl) return;
+
+            flashEl.classList.remove('dz-flash-on', 'dz-flash-off');
+            void flashEl.offsetWidth; // reflow so animation restarts if already playing
+            flashEl.classList.add(cls);
+            flashEl.addEventListener('animationend', function rm() {
+                flashEl.removeEventListener('animationend', rm);
+                flashEl.classList.remove('dz-flash-on', 'dz-flash-off');
+            });
+        }, 0);
+    }
+
+    function attachSparklineWsHook() {
+        if (!window.angular) { setTimeout(attachSparklineWsHook, 600); return; }
+        var bodyEl = angular.element(document.body);
+        if (!bodyEl || !bodyEl.injector || !bodyEl.injector()) { setTimeout(attachSparklineWsHook, 400); return; }
+        try {
+            var $rootScope = bodyEl.injector().get('$rootScope');
+            $rootScope.$on('device_update', function (evt, device) {
+                wsAppendSparkline(device);
+                wsFlashCard(device);
+            });
+            $rootScope.$on('scene_update', function (evt, scene) {
+                wsFlashCard(scene);
+            });
+            // Re-seed sparklines after Angular route changes
+            $rootScope.$on('$routeChangeSuccess', function () {
+                scheduleSparklineInit();
+            });
+        } catch (e) {
+            setTimeout(attachSparklineWsHook, 600);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachSparklineWsHook);
+    } else {
+        attachSparklineWsHook();
+    }
 })();
 
 
@@ -2455,8 +2969,11 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     'use strict';
 
-    var UVAR_PREFIX = 'ngTheme_';
-    var UVAR_TYPE = 2; // string type for user variables
+    // All settings are stored as a single JSON string in one user variable,
+    // rather than one user variable per key.  This cuts API traffic from
+    // ~30 calls per load/save down to 1.
+    var UVAR_NAME = 'ngTheme_settings'; // the single JSON user variable
+    var UVAR_TYPE = 2;                  // Domoticz "string" type
 
     // Base path for API calls
     var BASE = (function () {
@@ -2516,13 +3033,14 @@ document.addEventListener('DOMContentLoaded', function () {
         toastBlacklist:     '[]'
     };
 
-    var _settings = null;
-    var _uvarCache = {}; // name → {idx, value}
+    var _settings      = null;
+    var _uvarIdx       = null; // Domoticz idx of the ngTheme_settings variable
     var _panelInjected = false;
-    var _apiAvailable = true; // false if Domoticz API is unreachable
-    var LS_KEY = 'ngThemeSettings';
+    var _apiAvailable  = true; // false if Domoticz API is unreachable
+    var _saveTimer     = null; // debounce handle for API writes
+    var LS_KEY         = 'ngThemeSettings';
 
-    /* ── Domoticz User Variable API helpers ─────────────────────── */
+    /* ── Domoticz API helper ──────────────────────────────────────── */
 
     function apiCall(params) {
         var url = BASE + 'json.htm?' + Object.keys(params).map(function (k) {
@@ -2534,46 +3052,70 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(function (r) { return r.json(); });
     }
 
-    function loadAllUvars() {
+    /* ── Single-variable JSON storage ────────────────────────────── */
+    // Loads all user variables, finds ngTheme_settings and parses its JSON.
+    // If that variable doesn't exist but old per-key ngTheme_* variables do,
+    // migrates them transparently (no data loss on first upgrade).
+    function loadJsonUvar() {
         return apiCall({ type: 'command', param: 'getuservariables' }).then(function (data) {
-            _uvarCache = {};
-            if (data && data.result) {
-                data.result.forEach(function (uv) {
-                    if (uv.Name.indexOf(UVAR_PREFIX) === 0) {
-                        _uvarCache[uv.Name] = { idx: uv.idx, value: uv.Value };
-                    }
-                });
+            if (!data || !data.result) return null;
+
+            // Look for the new consolidated variable first
+            for (var i = 0; i < data.result.length; i++) {
+                var uv = data.result[i];
+                if (uv.Name === UVAR_NAME) {
+                    _uvarIdx = uv.idx;
+                    try { return JSON.parse(uv.Value); } catch (e) { return null; }
+                }
             }
+
+            // Migration path: absorb old per-key ngTheme_<key> variables
+            var migrated = {};
+            var oldPrefix = 'ngTheme_';
+            data.result.forEach(function (uv) {
+                if (uv.Name.indexOf(oldPrefix) === 0 && uv.Name !== UVAR_NAME) {
+                    var key = uv.Name.slice(oldPrefix.length);
+                    if (key in DEFAULTS) {
+                        var raw = uv.Value;
+                        // Old variables stored booleans as the strings "true"/"false"
+                        migrated[key] = typeof DEFAULTS[key] === 'boolean' ? raw === 'true' : raw;
+                    }
+                }
+            });
+            return Object.keys(migrated).length ? migrated : null;
         });
     }
 
-    function getUvar(key) {
-        var name = UVAR_PREFIX + key;
-        return _uvarCache[name] ? _uvarCache[name].value : undefined;
+    // Serialises _settings to JSON and writes/creates the single user variable.
+    // Debounced at 400 ms so rapid consecutive saveSetting() calls (e.g. applying
+    // a preset) collapse into one API request.
+    function saveJsonUvar() {
+        clearTimeout(_saveTimer);
+        _saveTimer = setTimeout(function () {
+            var json = JSON.stringify(_settings);
+            if (_uvarIdx) {
+                apiCall({
+                    type: 'command', param: 'updateuservariable',
+                    idx: _uvarIdx, vname: UVAR_NAME, vtype: UVAR_TYPE, vvalue: json
+                });
+            } else {
+                apiCall({
+                    type: 'command', param: 'adduservariable',
+                    vname: UVAR_NAME, vtype: UVAR_TYPE, vvalue: json
+                }).then(function () {
+                    // Re-fetch so we have the idx for future update calls
+                    return apiCall({ type: 'command', param: 'getuservariables' });
+                }).then(function (data) {
+                    if (!data || !data.result) return;
+                    data.result.forEach(function (uv) {
+                        if (uv.Name === UVAR_NAME) _uvarIdx = uv.idx;
+                    });
+                });
+            }
+        }, 400);
     }
 
-    function setUvar(key, value) {
-        var name = UVAR_PREFIX + key;
-        var strVal = String(value);
-        if (_uvarCache[name] && _uvarCache[name].idx) {
-            _uvarCache[name].value = strVal;
-            return apiCall({
-                type: 'command', param: 'updateuservariable',
-                idx: _uvarCache[name].idx, vname: name, vtype: UVAR_TYPE, vvalue: strVal
-            });
-        } else {
-            _uvarCache[name] = { idx: null, value: strVal };
-            return apiCall({
-                type: 'command', param: 'adduservariable',
-                vname: name, vtype: UVAR_TYPE, vvalue: strVal
-            }).then(function () {
-                // Reload to get the new idx
-                return loadAllUvars();
-            });
-        }
-    }
-
-    /* ── Settings object ───────────────────────────────────────── */
+    /* ── Settings persistence ─────────────────────────────────────── */
 
     function loadFromLocalStorage() {
         try {
@@ -2588,18 +3130,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadSettings() {
-        return loadAllUvars().then(function () {
-            _settings = {};
-            Object.keys(DEFAULTS).forEach(function (key) {
-                var raw = getUvar(key);
-                if (raw === undefined) {
-                    _settings[key] = DEFAULTS[key];
-                } else if (typeof DEFAULTS[key] === 'boolean') {
-                    _settings[key] = raw === 'true';
-                } else {
-                    _settings[key] = raw;
-                }
-            });
+        return loadJsonUvar().then(function (stored) {
+            // JSON.parse preserves native types (boolean true, not string "true"),
+            // so no per-key type coercion is needed here.
+            _settings = Object.assign({}, DEFAULTS, stored || {});
             _apiAvailable = true;
             saveToLocalStorage();
             return _settings;
@@ -2613,7 +3147,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function saveSetting(key, value) {
         _settings[key] = value;
-        if (_apiAvailable) setUvar(key, value);
+        if (_apiAvailable) saveJsonUvar(); // debounced, batches rapid changes
         saveToLocalStorage();
         applySettings();
     }
@@ -3403,74 +3937,35 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!preset || !preset.colors) return;
         var colors = preset.colors;
         var keys = Object.keys(colors);
-        var total = keys.length;
-        var completed = 0;
 
-        // Show progress toast
-        var toast = document.createElement('div');
-        toast.className = 'ng-preset-toast';
-        toast.innerHTML =
-            '<div class="ng-preset-toast-inner">' +
-            '<i class="fa-solid fa-palette ng-preset-toast-icon"></i>' +
-            '<div class="ng-preset-toast-content">' +
-            '<span class="ng-preset-toast-label">Applying theme…</span>' +
-            '<div class="ng-preset-toast-bar"><div class="ng-preset-toast-fill"></div></div>' +
-            '<span class="ng-preset-toast-pct">0 / ' + total + '</span>' +
-            '</div></div>';
-        document.body.appendChild(toast);
-        var fill = toast.querySelector('.ng-preset-toast-fill');
-        var pct = toast.querySelector('.ng-preset-toast-pct');
-        var label = toast.querySelector('.ng-preset-toast-label');
+        // Apply all color keys locally (synchronous), then one API call
+        keys.forEach(function (key) { _settings[key] = colors[key]; });
+        saveToLocalStorage();
+        if (_apiAvailable) saveJsonUvar();
 
-        // Force reflow then add visible class for entrance animation
-        toast.offsetHeight;
-        toast.classList.add('ng-preset-toast--visible');
+        applySettings();
 
-        var promises = keys.map(function (key) {
-            _settings[key] = colors[key];
-            saveToLocalStorage();
-            if (_apiAvailable) {
-                var p = setUvar(key, colors[key]);
-                if (p && typeof p.then === 'function') {
-                    return p.then(function () {
-                        completed++;
-                        var percent = Math.round((completed / total) * 100);
-                        fill.style.width = percent + '%';
-                        pct.textContent = completed + ' / ' + total;
-                    }).catch(function () {
-                        completed++;
-                        var percent = Math.round((completed / total) * 100);
-                        fill.style.width = percent + '%';
-                        pct.textContent = completed + ' / ' + total;
-                    });
-                }
-            }
-            completed++;
-            return Promise.resolve();
-        });
+        // Re-render the settings panel to reflect new colors
+        var wrap = document.getElementById('ng-theme-settings-wrap');
+        if (wrap) {
+            var presetsBody = wrap.querySelector('#ngPresetsBody');
+            var presetsWereOpen = presetsBody && presetsBody.style.display !== 'none';
+            wrap.innerHTML = buildPanel({ presetsOpen: presetsWereOpen });
+            bindEvents(wrap);
+            loadPresets(wrap);
+        }
 
-        Promise.all(promises).then(function () {
-            applySettings();
-            label.textContent = 'Theme applied!';
-            fill.style.width = '100%';
-            pct.textContent = total + ' / ' + total;
-            toast.querySelector('.ng-preset-toast-icon').className = 'fa-solid fa-circle-check ng-preset-toast-icon';
-
-            // Re-render the settings panel to reflect new colors
-            var wrap = document.getElementById('ng-theme-settings-wrap');
-            if (wrap) {
-                var presetsBody = wrap.querySelector('#ngPresetsBody');
-                var presetsWereOpen = presetsBody && presetsBody.style.display !== 'none';
-                wrap.innerHTML = buildPanel({ presetsOpen: presetsWereOpen });
-                bindEvents(wrap);
-                loadPresets(wrap);
-            }
-
-            setTimeout(function () {
-                toast.classList.remove('ng-preset-toast--visible');
-                setTimeout(function () { toast.remove(); }, 350);
-            }, 1500);
-        });
+        // Show a simple confirmation toast
+        if (window.ngShowToast) {
+            window.ngShowToast({
+                icon:     'fa-palette',
+                color:    'var(--dz-accent)',
+                title:    preset.name || 'Theme preset',
+                body:     'Theme applied',
+                type:     'success',
+                duration: 3000
+            });
+        }
     }
 
     /* ── Inject panel into settings page ───────────────────────── */
@@ -5508,5 +6003,732 @@ document.addEventListener('DOMContentLoaded', function () {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
+    }
+})();
+
+
+/* ── Feature 11: WebSocket Live Card Updates ─────────────────────── */
+// Hooks into Domoticz's Angular device_update event (fired for every
+// WebSocket message from the server) to:
+//   1. Instantly refresh the card-footer timestamp so it always shows
+//      the real last-update time rather than waiting for the next burst.
+//   2. Trigger an icon-replacement burst immediately so any on/off state
+//      change rendered by Angular is picked up without the full burst delay.
+(function () {
+    'use strict';
+
+    var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+                        'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function fmtLastUpdate(raw) {
+        var m = String(raw || '').match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+        var d = m ? new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]) : new Date();
+        var now  = new Date();
+        var h    = d.getHours(), min = ('0' + d.getMinutes()).slice(-2);
+        var ampm = h >= 12 ? 'pm' : 'am';
+        var h12  = (h % 12) || 12;
+        var time = h12 + ':' + min + '\u202f' + ampm;
+        var sameDay = d.getFullYear() === now.getFullYear() &&
+                      d.getMonth()    === now.getMonth()    &&
+                      d.getDate()     === now.getDate();
+        if (sameDay) return 'today\u202f' + time;
+        return MONTHS_SHORT[d.getMonth()] + '\u202f' + d.getDate() + ',\u202f' + time;
+    }
+
+    function findCard(idx) {
+        var tbl = document.getElementById('itemtable' + idx);
+        if (!tbl) return null;
+        var el = tbl.parentElement;
+        while (el && el !== document.body) {
+            if (el.classList.contains('itemBlock')) return el;
+            if (el.classList.contains('item') && el.parentElement &&
+                el.parentElement.classList.contains('itemBlock')) return el;
+            el = el.parentElement;
+        }
+        return null;
+    }
+
+    function onDeviceUpdate(device) {
+        var idx = String(device.idx || device.ID || '');
+        if (!idx) return;
+
+        var card = findCard(idx);
+        if (!card) return;
+
+        // Instantly update the card-footer timestamp (.dz-time is injected by
+        // us, so Angular's data-binding will not overwrite it).
+        var luSpan = card.querySelector('.dz-card-footer .dz-time');
+        if (luSpan) {
+            var formatted = fmtLastUpdate(device.LastUpdate);
+            if (luSpan.textContent !== formatted) luSpan.textContent = formatted;
+        }
+
+        // Schedule an icon-replacement burst so on/off state changes rendered
+        // by Angular in the same digest cycle are caught immediately.
+        if (window._dzScheduleBurst) window._dzScheduleBurst();
+    }
+
+    function attachHooks() {
+        if (!window.angular) { setTimeout(attachHooks, 600); return; }
+        var bodyEl = angular.element(document.body);
+        if (!bodyEl || !bodyEl.injector || !bodyEl.injector()) { setTimeout(attachHooks, 400); return; }
+        try {
+            var $rootScope = bodyEl.injector().get('$rootScope');
+            $rootScope.$on('device_update', function (evt, device) { onDeviceUpdate(device); });
+        } catch (e) {
+            setTimeout(attachHooks, 600);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachHooks);
+    } else {
+        attachHooks();
+    }
+})();
+
+/* ── Feature 12: Command Palette (Ctrl+K) ─────────────────────────
+   Full device/scene search with live state, direct toggle control,
+   dimmer sliders, and recently-changed defaults.
+   ──────────────────────────────────────────────────────────────── */
+(function () {
+    'use strict';
+
+    // ── State ──────────────────────────────────────────────────────
+    var _overlay    = null;
+    var _input      = null;
+    var _list       = null;
+    var _activeIdx  = -1;
+    var _allDevices = [];       // full list from API
+    var _recentMap  = {};       // idx → { device, ts }
+    var _recentKeys = [];       // sorted idx list, most-recent first
+    var _fetched    = false;
+
+    // ── Device data ────────────────────────────────────────────────
+
+    function fetchAll() {
+        var url = 'json.htm?type=command&param=getdevices&filter=all&used=true&order=Name';
+        fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data && data.result) { _allDevices = data.result; }
+                _fetched = true;
+            })
+            .catch(function () { _fetched = true; });
+    }
+
+    function patchDevice(d) {
+        var idx = String(d.idx || d.ID || '');
+        if (!idx) return;
+        for (var i = 0; i < _allDevices.length; i++) {
+            if (String(_allDevices[i].idx) === idx) {
+                var keys = Object.keys(d);
+                for (var k = 0; k < keys.length; k++) _allDevices[i][keys[k]] = d[keys[k]];
+                break;
+            }
+        }
+        _recentMap[idx] = { device: d, ts: Date.now() };
+        _recentKeys = Object.keys(_recentMap)
+            .sort(function (a, b) { return _recentMap[b].ts - _recentMap[a].ts; })
+            .slice(0, 24);
+        if (_overlay && _input && !_input.value.trim()) render('');
+    }
+
+    // ── Icon lookup ────────────────────────────────────────────────
+
+    function iconFor(device) {
+        // 1. Best: read the already-resolved FA icon from the live DOM card
+        var tbl = document.getElementById('itemtable' + device.idx);
+        if (tbl) {
+            var fa = tbl.querySelector('i.dz-fa-device');
+            if (fa) {
+                // Return the full icon class string (e.g. "fa-solid fa-lightbulb")
+                var parts = fa.className.split(' ').filter(function (c) {
+                    return c === 'fa-solid' || c === 'fa-regular' || c.indexOf('fa-') === 0;
+                });
+                // Remove helper classes
+                parts = parts.filter(function (c) {
+                    return c !== 'dz-fa-device' && c !== 'dz-wind';
+                });
+                if (parts.length) return parts.join(' ');
+            }
+        }
+        // 2. Use the icon replacement system's resolver via TypeImg
+        if (window._dzIconForDevice && device.TypeImg) {
+            var r = window._dzIconForDevice(device);
+            if (r && r.icon) return r.icon;
+        }
+        // 3. Last resort: basic type-based fallbacks
+        var t  = (device.Type       || '').toLowerCase();
+        var st = (device.SwitchType || '').toLowerCase();
+        var sub = (device.SubType   || '').toLowerCase();
+        if (t.indexOf('temp')    >= 0) return 'fa-solid fa-temperature-half';
+        if (t.indexOf('color')   >= 0 || t.indexOf('light') >= 0) return 'fa-solid fa-lightbulb';
+        if (t === 'scene')              return 'fa-solid fa-play-circle';
+        if (t === 'group')              return 'fa-solid fa-layer-group';
+        if (t.indexOf('wind')    >= 0) return 'fa-solid fa-wind';
+        if (t.indexOf('rain')    >= 0) return 'fa-solid fa-cloud-showers-heavy';
+        if (t.indexOf('humid')   >= 0) return 'fa-solid fa-droplet';
+        if (t.indexOf('p1')      >= 0 || t.indexOf('usage') >= 0 ||
+            sub.indexOf('electric')>= 0)  return 'fa-solid fa-bolt';
+        if (t.indexOf('current') >= 0) return 'fa-solid fa-gauge';
+        if (t.indexOf('general') >= 0 && sub.indexOf('counter') >= 0) return 'fa-solid fa-hashtag';
+        if (st.indexOf('blind')  >= 0) return 'fa-solid fa-chevron-down';
+        if (st.indexOf('door lock') >= 0) return 'fa-solid fa-lock';
+        if (st.indexOf('door')   >= 0) return 'fa-solid fa-door-closed';
+        if (st.indexOf('motion') >= 0) return 'fa-solid fa-person-running';
+        if (st.indexOf('smoke')  >= 0) return 'fa-solid fa-triangle-exclamation';
+        if (st.indexOf('contact')>= 0) return 'fa-solid fa-sensor';
+        if (st.indexOf('dimmer') >= 0) return 'fa-solid fa-circle-half-stroke';
+        return 'fa-solid fa-circle-dot';
+    }
+
+    // ── Device state helpers ───────────────────────────────────────
+
+    function isOn(d) {
+        var s = d.Status || '';
+        return ['On','Group On','Chime','Panic','Mixed'].indexOf(s) >= 0 ||
+               s.indexOf('Set ') === 0 ||
+               s.indexOf('NightMode') === 0 ||
+               s.indexOf('Disco ') === 0;
+    }
+
+    function isToggleable(d) {
+        var t  = d.Type       || '';
+        var st = d.SwitchType || '';
+        if (t === 'Scene' || t === 'Group') return true;
+        var lights = ['Light/Switch','Lighting 1','Lighting 2','Lighting 5',
+                      'Lighting 6','Color Switch','Chime'];
+        if (lights.indexOf(t) < 0) return false;
+        var readOnly = ['Door Contact','Contact','Motion Sensor','Dusk Sensor'];
+        return readOnly.indexOf(st) < 0;
+    }
+
+    function isDimmer(d) {
+        return ['Dimmer','Blinds Percentage','Blinds % + Stop']
+               .indexOf(d.SwitchType || '') >= 0;
+    }
+
+    // Derive a display unit for sensor devices that return bare numbers
+    function _derivedUnit(d) {
+        if (d.SensorUnit) return d.SensorUnit;
+        var sub  = (d.SubType || '').toLowerCase();
+        var type = (d.Type    || '').toLowerCase();
+        var sw   = d.SwitchTypeVal;
+        if (sub === 'electric' || type === 'usage')            return 'W';
+        if (sub === 'gas'   || sub === 'water')                return 'm\u00b3';
+        if (sub === 'kwh'   || sub === 'managed counter')      return 'kWh';
+        if (sub === 'counter incremental')                     return '';
+        if (sub === 'voltage' || sub === 'a/d')                return 'mV';
+        if (sub === 'current' || type === 'current')           return 'A';
+        if (sub === 'pressure')                                return 'Bar';
+        if (sub === 'lux')                                     return 'lx';
+        if (sub === 'percentage' || sub === 'humidity')        return '%';
+        if (sub === 'visibility')                              return sw === 1 ? 'mi' : 'km';
+        if (sub === 'solar radiation')                         return 'W/m\u00b2';
+        if (type === 'rain')                                   return 'mm';
+        return '';
+    }
+
+    function stateLabel(d) {
+        // Toggleable devices: prefer Status ("On" / "Off" / "Set 75 %")
+        if (isToggleable(d)) return d.Status || d.Data || '';
+        var data = (d.Data || '').trim();
+        if (!data) return d.Status || '';
+
+        // Take only the first ';'- or newline-separated segment
+        var first = data.split(/[;\n]/)[0].trim();
+
+        // Strip "Label: value" prefixes produced by P1/counter devices
+        // e.g. "Usage1: 1234.567 kWh" → "1234.567 kWh"
+        first = first.replace(/^[A-Za-z][A-Za-z0-9 _]*:\s*/, '');
+
+        // If the result is still a bare number, append the derived unit
+        if (/^-?\d+(\.\d+)?$/.test(first)) {
+            var unit = _derivedUnit(d);
+            if (unit) first += '\u00a0' + unit;
+        }
+
+        return first || d.Status || '';
+    }
+
+    // Maps a device to the Domoticz Angular route where it appears
+    function deviceRoute(d) {
+        var t  = (d.Type        || '').toLowerCase();
+        var st = (d.SwitchType  || '').toLowerCase();
+        if (t === 'scene' || t === 'group')                        return '/Scenes';
+        if (t.indexOf('temp') >= 0 || t.indexOf('humid') >= 0)    return '/Temp';
+        if (t.indexOf('wind') >= 0 || t.indexOf('rain') >= 0 ||
+            t.indexOf('uv')   >= 0 || t.indexOf('baro') >= 0)     return '/Weather';
+        if (t.indexOf('light')   >= 0 || t.indexOf('color')  >= 0 ||
+            t.indexOf('lighting')>= 0 || t.indexOf('chime')  >= 0 ||
+            st.indexOf('dimmer') >= 0 || st.indexOf('blind')  >= 0 ||
+            st.indexOf('door')   >= 0 || st.indexOf('motion') >= 0 ||
+            st.indexOf('contact')>= 0 || st.indexOf('smoke')  >= 0)
+                                                                   return '/Switches';
+        return '/Utility';
+    }
+
+    // ── API calls ──────────────────────────────────────────────────
+
+    function apiToggle(d, cb) {
+        var param = (d.Type === 'Scene' || d.Type === 'Group')
+            ? 'switchscene' : 'switchlight';
+        var cmd;
+        if (d.Type === 'Group') {
+            cmd = isOn(d) ? 'Off' : 'On';
+        } else if (d.Type === 'Scene') {
+            cmd = 'On';
+        } else {
+            cmd = 'Toggle';
+        }
+        fetch('json.htm?type=command&param=' + param +
+              '&idx=' + d.idx + '&switchcmd=' + cmd,
+              { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function () {
+                if (cmd === 'Toggle') {
+                    d.Status = isOn(d) ? 'Off' : 'On';
+                } else {
+                    d.Status = cmd;
+                }
+                if (cb) cb(d);
+            })
+            .catch(function () {});
+    }
+
+    function apiSetLevel(d, level, cb) {
+        fetch('json.htm?type=command&param=switchlight&idx=' + d.idx +
+              '&switchcmd=Set+Level&level=' + level,
+              { credentials: 'same-origin' })
+            .then(function () { if (cb) cb(); })
+            .catch(function () {});
+    }
+
+    // ── Fuzzy search ───────────────────────────────────────────────
+
+    function matches(name, q) {
+        if (!q) return true;
+        var n = name.toLowerCase(), ql = q.toLowerCase();
+        if (n.indexOf(ql) >= 0) return true;
+        var qi = 0;
+        for (var i = 0; i < n.length && qi < ql.length; i++) {
+            if (n[i] === ql[qi]) qi++;
+        }
+        return qi === ql.length;
+    }
+
+    function score(name, q) {
+        var n = name.toLowerCase(), ql = q.toLowerCase();
+        if (n === ql)                  return 120;
+        if (n.indexOf(ql) === 0)       return 100;
+        if (n.indexOf(ql) > 0)         return 80;
+        var words = n.split(/[\s_\-]+/);
+        for (var w = 0; w < words.length; w++) {
+            if (words[w].indexOf(ql) === 0) return 70;
+        }
+        return 30;
+    }
+
+    // ── DOM helpers ────────────────────────────────────────────────
+
+    function esc(s) {
+        return String(s || '')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function highlight(text, q) {
+        if (!q) return esc(text);
+        var escaped = esc(text);
+        var qe = esc(q);
+        var idx = escaped.toLowerCase().indexOf(qe.toLowerCase());
+        if (idx < 0) return escaped;
+        return escaped.slice(0, idx) +
+               '<mark class="dz-cmd-mark">' + escaped.slice(idx, idx + qe.length) + '</mark>' +
+               escaped.slice(idx + qe.length);
+    }
+
+    // ── Render ─────────────────────────────────────────────────────
+
+    function render(query) {
+        if (!_list) return;
+        var q      = query.trim();
+        var items;
+        var showRecent = !q;
+
+        if (!_fetched && _allDevices.length === 0) {
+            _list.innerHTML =
+                '<div class="dz-cmd-loading">' +
+                '<i class="fa-solid fa-circle-notch fa-spin"></i> Loading devices\u2026</div>';
+            return;
+        }
+
+        if (showRecent) {
+            // Default: show favorites (Favorite == 1), sorted by name
+            var favs = _allDevices.filter(function (d) { return d.Favorite == 1; });
+            favs.sort(function (a, b) { return (a.Name || '').localeCompare(b.Name || ''); });
+            if (favs.length > 0) {
+                items = favs.slice(0, 12);
+            } else {
+                // No favorites set — fall back to recently changed
+                var recentDevices = _recentKeys
+                    .map(function (k) { return _recentMap[k] && _recentMap[k].device; })
+                    .filter(Boolean)
+                    .slice(0, 8);
+                var seen = {};
+                recentDevices.forEach(function (d) { seen[String(d.idx)] = true; });
+                var fill = _allDevices
+                    .filter(function (d) { return !seen[String(d.idx)]; })
+                    .slice(0, Math.max(0, 8 - recentDevices.length));
+                items = recentDevices.concat(fill);
+            }
+        } else {
+            items = _allDevices
+                .filter(function (d) { return matches(d.Name || '', q); })
+                .sort(function (a, b) { return score(b.Name||'',q) - score(a.Name||'',q); })
+                .slice(0, 12);
+        }
+
+        _list.innerHTML = '';
+        _activeIdx = -1;
+
+        if (items.length === 0) {
+            _list.innerHTML = '<div class="dz-cmd-empty">No devices found for \u201c' + esc(q) + '\u201d</div>';
+            return;
+        }
+
+        if (showRecent) {
+            var hdr2 = document.createElement('div');
+            hdr2.className = 'dz-cmd-section';
+            var favCount = _allDevices.filter(function (d) { return d.Favorite == 1; }).length;
+            hdr2.textContent = favCount > 0 ? 'Favorites' : 'Recently Changed';
+            _list.appendChild(hdr2);
+        }
+
+        items.forEach(function (device, i) {
+            _list.appendChild(buildItem(device, i, q));
+        });
+    }
+
+    function buildItem(device, index, query) {
+        var el  = document.createElement('div');
+        var on  = isOn(device);
+        var tog = isToggleable(device);
+        var dim = isDimmer(device);
+        el.className = 'dz-cmd-item';
+        el.setAttribute('data-index', index);
+
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'dz-cmd-icon' + (on ? ' dz-cmd-icon--on' : '');
+        iconWrap.innerHTML = '<i class="' + iconFor(device) + '"></i>';
+        el.appendChild(iconWrap);
+
+        var body = document.createElement('div');
+        body.className = 'dz-cmd-body';
+        var nameEl = document.createElement('div');
+        nameEl.className = 'dz-cmd-name';
+        nameEl.innerHTML = highlight(device.Name || '', query);
+        body.appendChild(nameEl);
+        var metaEl = document.createElement('div');
+        metaEl.className = 'dz-cmd-meta';
+        var parts = [];
+        if (device.Type) parts.push(device.Type);
+        if (device.SwitchType && device.SwitchType !== device.Type) parts.push(device.SwitchType);
+        metaEl.textContent = parts.join(' \u00b7 ');
+        body.appendChild(metaEl);
+        el.appendChild(body);
+
+        var stateEl = document.createElement('div');
+        stateEl.className = 'dz-cmd-state' + (on ? ' dz-cmd-state--on' : '');
+        stateEl.textContent = stateLabel(device);
+        el.appendChild(stateEl);
+
+        // Navigate button — always present, visible on hover / keyboard focus
+        var navBtn = document.createElement('button');
+        navBtn.className = 'dz-cmd-nav-btn';
+        navBtn.title = 'Go to page (Shift+\u21b5)';
+        navBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i>';
+        navBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            navigateToDevice(device);
+        });
+        el.appendChild(navBtn);
+
+        // Toggle hint — only shown for toggleable devices
+        if (tog || dim) {
+            var hint = document.createElement('div');
+            hint.className = 'dz-cmd-hint';
+            hint.innerHTML = '<kbd>\u21b5</kbd>';
+            el.appendChild(hint);
+        }
+
+        // Store device reference for keyboard Shift+Enter
+        el._dzDevice = device;
+
+        var sliderRow = null;
+        if (dim) {
+            sliderRow = document.createElement('div');
+            sliderRow.className = 'dz-cmd-slider-row';
+            var level = parseInt(device.Level || 0, 10) || 0;
+            sliderRow.innerHTML =
+                '<input type="range" class="dz-cmd-slider" min="0" max="100" step="5" value="' + level + '">' +
+                '<span class="dz-cmd-slider-val">' + level + '%</span>';
+            var slider  = sliderRow.querySelector('.dz-cmd-slider');
+            var valSpan = sliderRow.querySelector('.dz-cmd-slider-val');
+            slider.addEventListener('input', function () {
+                valSpan.textContent = this.value + '%';
+            });
+            slider.addEventListener('change', function () {
+                apiSetLevel(device, this.value, function () {
+                    device.Level = parseInt(slider.value, 10);
+                    stateEl.textContent = slider.value + '%';
+                });
+            });
+            slider.addEventListener('click', function (e) { e.stopPropagation(); });
+            el.appendChild(sliderRow);
+        }
+
+        el.addEventListener('mouseenter', function () { setActive(index); });
+        el.addEventListener('click', function (e) {
+            if (e.target.classList.contains('dz-cmd-slider')) return;
+            onActivate(device, el, stateEl, iconWrap, sliderRow);
+        });
+
+        return el;
+    }
+
+    function navigateToDevice(device) {
+        var route = deviceRoute(device);
+        closePalette();
+        // Always navigate to the device's type page so the user lands in the right section.
+        // Use Angular's $location if available (fires $routeChangeSuccess properly);
+        // fall back to direct hash assignment.
+        setTimeout(function () {
+            try {
+                var injector = window.angular && angular.element(document.body).injector();
+                var $location  = injector && injector.get('$location');
+                var $rootScope = injector && injector.get('$rootScope');
+                if ($location && $rootScope) {
+                    $rootScope.$apply(function () { $location.path(route); });
+                    return;
+                }
+            } catch (e) {}
+            window.location.hash = route;
+        }, 10); // defer past closePalette's synchronous work
+    }
+
+    function onActivate(device, el, stateEl, iconWrap, sliderRow) {
+        if (isDimmer(device) && sliderRow) {
+            if (!sliderRow.classList.contains('dz-cmd-slider-row--visible')) {
+                sliderRow.classList.add('dz-cmd-slider-row--visible');
+                var s = sliderRow.querySelector('.dz-cmd-slider');
+                if (s) setTimeout(function () { s.focus(); }, 0);
+                return;
+            }
+        }
+        if (!isToggleable(device)) return; // Enter only toggles; use nav button or Shift+Enter to navigate
+        apiToggle(device, function (d) {
+            var nowOn = isOn(d);
+            stateEl.textContent = stateLabel(d);
+            stateEl.classList.toggle('dz-cmd-state--on', nowOn);
+            iconWrap.classList.toggle('dz-cmd-icon--on', nowOn);
+            var tbl2 = document.getElementById('itemtable' + d.idx);
+            if (tbl2) {
+                var card2 = tbl2.closest
+                    ? tbl2.closest('div.item.itemBlock, .itemBlock > div.item')
+                    : null;
+                if (card2) {
+                    card2.classList.add(nowOn ? 'dz-flash-on' : 'dz-flash-off');
+                    setTimeout(function () {
+                        card2.classList.remove('dz-flash-on', 'dz-flash-off');
+                    }, 700);
+                }
+            }
+        });
+    }
+
+    // ── Active item ────────────────────────────────────────────────
+
+    function setActive(index) {
+        if (!_list) return;
+        var items = _list.querySelectorAll('.dz-cmd-item');
+        if (_activeIdx >= 0 && items[_activeIdx]) {
+            items[_activeIdx].classList.remove('dz-cmd-item--active');
+        }
+        _activeIdx = index;
+        if (_activeIdx >= 0 && items[_activeIdx]) {
+            items[_activeIdx].classList.add('dz-cmd-item--active');
+            items[_activeIdx].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // ── Open / close ───────────────────────────────────────────────
+
+    function openPalette() {
+        if (_overlay) { _input && _input.focus(); return; }
+
+        _overlay = document.createElement('div');
+        _overlay.id = 'dz-cmd-overlay';
+
+        var box = document.createElement('div');
+        box.id = 'dz-cmd-box';
+
+        var hdr = document.createElement('div');
+        hdr.id = 'dz-cmd-header';
+        hdr.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+
+        _input = document.createElement('input');
+        _input.type = 'text';
+        _input.id = 'dz-cmd-input';
+        _input.placeholder = 'Search devices and scenes\u2026';
+        _input.autocomplete = 'off';
+        _input.setAttribute('spellcheck', 'false');
+        hdr.appendChild(_input);
+
+        var escBtn = document.createElement('kbd');
+        escBtn.className = 'dz-cmd-esc';
+        escBtn.textContent = 'Esc';
+        escBtn.addEventListener('click', closePalette);
+        hdr.appendChild(escBtn);
+        box.appendChild(hdr);
+
+        _list = document.createElement('div');
+        _list.id = 'dz-cmd-list';
+        box.appendChild(_list);
+
+        var footer = document.createElement('div');
+        footer.id = 'dz-cmd-footer';
+        var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+        var modKey = isMac ? '\u2318' : 'Ctrl';
+        footer.innerHTML =
+            '<span class="dz-cmd-footer-tip"><kbd>' + modKey + '</kbd><kbd>K</kbd> open\u202fanywhere</span>' +
+            '<span class="dz-cmd-footer-right">' +
+            '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> navigate</span>' +
+            '<span><kbd>\u21b5</kbd> toggle</span>' +
+            '<span><kbd>\u21e7\u21b5</kbd> go\u202fto\u202fpage</span>' +
+            '<span><kbd>Esc</kbd> close</span>' +
+            '</span>';
+        box.appendChild(footer);
+
+        _overlay.appendChild(box);
+        document.body.appendChild(_overlay);
+
+        _input.addEventListener('input', function () {
+            _activeIdx = -1;
+            render(_input.value);
+        });
+
+        _input.addEventListener('keydown', function (e) {
+            var items = _list.querySelectorAll('.dz-cmd-item');
+            var n = items.length;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActive((_activeIdx + 1) % Math.max(n, 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActive((_activeIdx - 1 + n) % Math.max(n, 1));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                var target = _activeIdx >= 0 ? items[_activeIdx] : items[0];
+                if (!target) return;
+                if (e.shiftKey) {
+                    // Shift+Enter → always navigate to device page
+                    if (target._dzDevice) navigateToDevice(target._dzDevice);
+                } else {
+                    target.click(); // Enter → toggle (or expand dimmer)
+                }
+            } else if (e.key === 'Escape') {
+                closePalette();
+            }
+        });
+
+        _overlay.addEventListener('click', function (e) {
+            if (e.target === _overlay) closePalette();
+        });
+
+        render('');
+        requestAnimationFrame(function () { _input && _input.focus(); });
+        if (!_fetched) fetchAll();
+    }
+
+    function closePalette() {
+        if (!_overlay) return;
+        _overlay.classList.add('dz-cmd-closing');
+        var snap = _overlay;
+        setTimeout(function () {
+            if (snap && snap.parentNode) snap.parentNode.removeChild(snap);
+            if (_overlay === snap) { _overlay = null; _input = null; _list = null; _activeIdx = -1; }
+        }, 160);
+    }
+
+    // ── Keyboard shortcut ──────────────────────────────────────────
+
+    document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+            e.preventDefault(); // always prevent browser Ctrl+K (address bar search)
+            var active = document.activeElement;
+            // Don't open when typing in a text field (unless it's our own input)
+            if (active && active !== _input &&
+                (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' ||
+                 active.isContentEditable)) return;
+            _overlay ? closePalette() : openPalette();
+        }
+    });
+
+    // ── Track recent device changes ────────────────────────────────
+
+    function hookAngular() {
+        if (!window.angular) { setTimeout(hookAngular, 600); return; }
+        var body = angular.element(document.body);
+        if (!body || !body.injector || !body.injector()) { setTimeout(hookAngular, 400); return; }
+        try {
+            body.injector().get('$rootScope')
+                .$on('device_update', function (evt, d) { patchDevice(d); });
+        } catch (e) { setTimeout(hookAngular, 600); }
+    }
+
+    // ── Intercept Domoticz search bar ──────────────────────────────
+    // Replace the built-in live-search field with a command-palette trigger.
+    // The original #tbFiltSearch element stays in the DOM (Angular manages its
+    // visibility via ng-show), we just hijack its click/focus behaviour and
+    // restyle it to show the Ctrl+K hint.
+
+    // Visual styling is 100% CSS (no class needed, applies before first render).
+    // JS only attaches click handlers — no DOM mutations, no flicker.
+    // Use document-level capture delegation — fires before Domoticz's WatchLiveSearch()
+    // handlers, survives DOM recreation on route changes, no timing issues.
+    (function () {
+        function isInsideSearchBar(el) {
+            while (el) {
+                if (el.id === 'tbFiltSearch') return true;
+                if (el.id === 'tbResults')    return false; // ignore clear-results btn
+                el = el.parentElement;
+            }
+            return false;
+        }
+
+        document.addEventListener('mousedown', function (e) {
+            if (!isInsideSearchBar(e.target)) return;
+            e.preventDefault(); // block native focus on the input
+            openPalette();
+        }, true); // capture phase — beats WatchLiveSearch()
+
+        document.addEventListener('touchend', function (e) {
+            if (!isInsideSearchBar(e.target)) return;
+            e.preventDefault();
+            openPalette();
+        }, true);
+    }());
+
+    // ── Init ───────────────────────────────────────────────────────
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(fetchAll, 800);
+            hookAngular();
+        });
+    } else {
+        setTimeout(fetchAll, 800);
+        hookAngular();
     }
 })();

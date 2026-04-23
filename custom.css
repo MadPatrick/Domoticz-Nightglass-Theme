@@ -346,6 +346,9 @@ strong {
     color: var(--dz-text);
 }
 
+#tbLinks A {
+    margin-bottom: 0px !important;
+}
 
 /* ══════════════════════════════════════════════════════════════════
    3.  NAVBAR  (matches idea/index.html pilot)
@@ -1101,59 +1104,177 @@ i.dz-fa-nav {
    4.  TOP BAR  (#topBar — search, room selector, sun times)
    ══════════════════════════════════════════════════════════════════ */
 
+/* All interactive elements in the topbar share a single height anchor */
+#topBar { --topbar-h: 26px; }
+
 #topBar {
-    border-bottom: 1px solid var(--dz-surface-3);
-    padding-bottom: 8px;
-    margin-bottom: 8px;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;      /* always one row */
+    gap: 6px !important;
+    padding: 6px 0 10px !important;
+    margin-bottom: 10px !important;
+    border-bottom: 1px solid var(--dz-border) !important;
+    overflow: hidden;                  /* clip instead of wrap */
 }
 
-#tbFiltSearch INPUT {
-    background: var(--dz-surface-2) !important;
-    color: var(--dz-text) !important;
-    border: 1px solid var(--dz-border-b) !important;
-    border-radius: 20px !important;
-    padding: 4px 12px !important;
-    font-size: 0.82rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+/* ── Shared pill mixin applied to the topbar span groups ─────── */
+#tbFilters,
+#tbTimeSun,
+#tbLinks {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px;
+    flex-shrink: 0;
 }
 
-    #tbFiltSearch INPUT:focus {
-        background: var(--dz-border) !important;
-        color: var(--dz-text) !important;
-        border-color: var(--dz-accent) !important;
-        box-shadow: 0 0 0 2px rgba(var(--dz-accent-rgb), 0.15) !important;
-        outline: none !important;
-    }
+#tbFilters { flex: 1 1 auto; }
 
-#tbFiltRooms SELECT {
-    background: var(--dz-surface-2) !important;
-    color: var(--dz-text) !important;
-    border: 1px solid var(--dz-border-b) !important;
-    border-radius: 6px !important;
-    padding: 4px 8px;
+/* ── Room selector ─────────────────────────────────────────────── */
+#tbFiltRooms {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px;
 }
 
-#tbSunGroup {
+#tbFiltRooms #tbIconRoom {
     color: var(--dz-text-muted);
+    font-size: 12px;
+    pointer-events: none;
 }
 
-#tbTimeSun .fa-sun {
-    color: var(--dz-warning);
-}
-
-#tbLinks a.btn {
+/* Target by id to beat Bootstrap/jQuery-UI specificity, no height override */
+#comboroom {
     background: var(--dz-surface-2) !important;
-    border: 1px solid var(--dz-border-b) !important;
     color: var(--dz-text) !important;
-    border-radius: 6px !important;
-    font-size: 0.8rem;
-    transition: border-color 0.2s, background 0.2s;
+    border: 1px solid var(--dz-border) !important;
+    border-radius: 8px !important;
+    padding: 0 6px !important;
+    font-size: 12px !important;
+    line-height: var(--topbar-h) !important;
+    min-height: var(--topbar-h) !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    transition: border-color 0.15s !important;
 }
 
-    #tbLinks a.btn:hover {
-        background: var(--dz-border) !important;
-        border-color: var(--dz-accent) !important;
-    }
+#comboroom:hover  { border-color: var(--dz-accent) !important; }
+#comboroom:focus  {
+    border-color: var(--dz-accent) !important;
+    box-shadow: 0 0 0 2px rgba(var(--dz-accent-rgb), 0.15) !important;
+    outline: none !important;
+}
+
+/* ── Clock ─────────────────────────────────────────────────────── */
+#jsTbTime {
+    display: inline-flex !important;
+    align-items: center !important;
+    height: var(--topbar-h) !important;
+    padding: 0 9px !important;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dz-text);
+    letter-spacing: 0.03em;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+/* ── Sun group: one pill, items inside ─────────────────────────── */
+#tbSunGroup {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px;
+    height: var(--topbar-h) !important;
+    padding: 0 9px !important;
+    font-size: 12px;
+    color: var(--dz-text-muted);
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+#tbIconSun { color: var(--dz-warning) !important; font-size: 12px; }
+
+#tbSunRise,
+#tbSunSet {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+#tbSunRise .fa-arrow-up   { color: #f59e42; font-size: 10px; }
+#tbSunSet  .fa-arrow-down { color: #7eb6f5; font-size: 10px; }
+
+/* Hairline divider between rise and set */
+#tbSunRise::after {
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    background: var(--dz-border);
+    margin-left: 5px;
+}
+
+/* ── Quick-links (same height anchor as pills) ──────────────────── */
+#tbLinks a.btn,
+#tbLinks a.btn.btn-xs {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: var(--topbar-h) !important;
+    padding: 0 10px !important;
+    box-sizing: border-box !important;
+    background: var(--dz-surface-2) !important;
+    border: 1px solid var(--dz-border) !important;
+    color: var(--dz-text-muted) !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    transition: border-color 0.15s, background 0.15s, color 0.15s !important;
+}
+
+#tbLinks a.btn:hover {
+    background: rgba(var(--dz-accent-rgb), 0.1) !important;
+    border-color: var(--dz-accent) !important;
+    color: var(--dz-accent) !important;
+}
+
+/* The actual search input is kept as an invisible overlay (see command palette section) */
+
+/* ── Responsive topbar — single row, items hide progressively ───── */
+
+/* ≤ 900px: button text → icon only; sun icon hidden */
+@media (max-width: 900px) {
+    #topBar { gap: 4px !important; }
+
+    #tbLinks a.btn span[data-i18n] { display: none !important; }
+    #tbLinks a.btn,
+    #tbLinks a.btn.btn-xs           { padding: 0 8px !important; }
+
+    #tbIconSun                      { display: none !important; }
+}
+
+/* ≤ 700px: hide clock */
+@media (max-width: 700px) {
+    #jsTbTime { display: none !important; }
+}
+
+/* ≤ 580px: hide sun group; hide room icon */
+@media (max-width: 580px) {
+    #tbSunGroup              { display: none !important; }
+    #tbFiltRooms #tbIconRoom { display: none !important; }
+    #comboroom               { max-width: 100px !important; }
+}
+
+/* ≤ 420px: hide link buttons entirely */
+@media (max-width: 420px) {
+    #topBar { --topbar-h: 24px; }
+    #tbLinks { display: none !important; }
+}
 
 
 /* ══════════════════════════════════════════════════════════════════
@@ -5629,6 +5750,60 @@ table.mobileitem,
     font-weight: 600;
 }
 
+/* ── Floorplan hover popup theming ──────────────────────────────────
+   The popup is rendered as a pure SVG <g class="DeviceDetails"> group.
+   Presentation attributes have lower specificity than CSS, so we can
+   override fill/stroke here without !important for most elements.      */
+
+/* Popup card background — uses --dz-surface-2 (the card surface token)
+   which is defined for both dark and light mode.  The SVG gradient is
+   also updated dynamically in JS via applyPopupGradient().             */
+.DeviceDetails rect.popup {
+    fill: var(--dz-surface-2);
+    stroke: var(--dz-border);
+    stroke-width: 0.5;
+}
+
+/* Drop-shadow rect: subtle depth cue */
+.DeviceDetails rect#shadow {
+    fill: rgba(0, 0, 0, 0.25);
+}
+
+/* All text inside the popup → themed text color
+   (SVG default is black — invisible on dark backgrounds)               */
+.DeviceDetails text,
+.DeviceDetails tspan {
+    fill: var(--dz-text);
+}
+
+/* Button label texts have fill="white" as a presentation attribute.
+   Re-pin them to white so they stay readable on the accent buttons.
+   Attribute selectors have higher specificity than the general rule.   */
+.DeviceDetails text[fill="white"],
+.DeviceDetails tspan[fill="white"] {
+    fill: #ffffff;
+}
+
+/* Action button rects: replace the photo-texture pattern fill with a
+   flat accent-coloured pill matching the rest of the Nightglass UI.    */
+.DeviceDetails rect[id="Log"],
+.DeviceDetails rect[id="Edit"],
+.DeviceDetails rect[id="Timers"],
+.DeviceDetails rect[id="Notifications"],
+.DeviceDetails rect[id="Forecast"] {
+    fill: var(--dz-accent);
+}
+
+/* foreignObject status divs (HTML text sensors) → inherit theme text */
+.DeviceDetails foreignObject div {
+    color: var(--dz-text) !important;
+}
+
+/* Font Awesome icon wrappers injected by Nightglass inside the popup */
+.DeviceDetails .dz-fp-icon-wrap {
+    overflow: visible;
+}
+
 
 /* ══════════════════════════════════════════════════════════════════
    21. FANCY CHECKBOXES  (dark-friendly toggle switch)
@@ -6068,40 +6243,27 @@ i.dz-fa-device[data-dz-state="on"].fa-triangle-exclamation {
    26. STATE-CHANGE FLASH ANIMATION
    ══════════════════════════════════════════════════════════════════ */
 
+/* outline is used instead of box-shadow: outline is NEVER clipped by
+   ancestor overflow:hidden, so it always shows regardless of page layout. */
+
 @keyframes dz-card-flash-on {
-    0% {
-        box-shadow: 0 0 0 0 rgba(78,154,241,0), var(--dz-widget-shadow, 0 2px 8px rgba(0,0,0,.25));
-    }
-
-    35% {
-        box-shadow: 0 0 0 8px rgba(78,154,241,0.45), var(--dz-widget-shadow, 0 2px 8px rgba(0,0,0,.25));
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(78,154,241,0), var(--dz-widget-shadow, 0 2px 8px rgba(0,0,0,.25));
-    }
+    0%   { outline: 3px solid rgba(78, 154, 241, 0);    outline-offset: 0px; }
+    30%  { outline: 3px solid rgba(78, 154, 241, 0.75); outline-offset: 3px; }
+    100% { outline: 3px solid rgba(78, 154, 241, 0);    outline-offset: 6px; }
 }
 
 @keyframes dz-card-flash-off {
-    0% {
-        box-shadow: 0 0 0 0 rgba(180,80,80,0), var(--dz-widget-shadow, 0 2px 8px rgba(0,0,0,.25));
-    }
-
-    35% {
-        box-shadow: 0 0 0 8px rgba(180,80,80,0.4), var(--dz-widget-shadow, 0 2px 8px rgba(0,0,0,.25));
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(180,80,80,0), var(--dz-widget-shadow, 0 2px 8px rgba(0,0,0,.25));
-    }
+    0%   { outline: 3px solid rgba(220, 80, 80, 0);    outline-offset: 0px; }
+    30%  { outline: 3px solid rgba(220, 80, 80, 0.75); outline-offset: 3px; }
+    100% { outline: 3px solid rgba(220, 80, 80, 0);    outline-offset: 6px; }
 }
 
 .dz-flash-on {
-    animation: dz-card-flash-on 0.6s ease-out forwards !important;
+    animation: dz-card-flash-on 0.65s ease-out forwards !important;
 }
 
 .dz-flash-off {
-    animation: dz-card-flash-off 0.6s ease-out forwards !important;
+    animation: dz-card-flash-off 0.65s ease-out forwards !important;
 }
 
 
@@ -9493,4 +9655,432 @@ body.dz-light .entity-log-table tbody tr.even td {
 
 body.dz-light .entity-log-table tbody tr:hover td {
     background: rgba(var(--dz-accent-rgb), 0.06) !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   COMMAND PALETTE  (Ctrl+K)
+   ══════════════════════════════════════════════════════════════════ */
+
+#dz-cmd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: clamp(60px, 12vh, 130px);
+    animation: dzCmdFadeIn 0.12s ease;
+}
+
+#dz-cmd-overlay.dz-cmd-closing {
+    animation: dzCmdFadeOut 0.15s ease forwards;
+}
+
+@keyframes dzCmdFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes dzCmdFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+#dz-cmd-box {
+    width: min(640px, calc(100vw - 32px));
+    background: var(--dz-surface);
+    border: 1px solid var(--dz-border);
+    border-radius: 14px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: dzCmdSlideIn 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#dz-cmd-overlay.dz-cmd-closing #dz-cmd-box {
+    animation: dzCmdSlideOut 0.15s ease forwards;
+}
+
+@keyframes dzCmdSlideIn {
+    from { transform: translateY(-12px) scale(0.97); opacity: 0; }
+    to   { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+@keyframes dzCmdSlideOut {
+    from { transform: translateY(0)    scale(1);    opacity: 1; }
+    to   { transform: translateY(-8px) scale(0.97); opacity: 0; }
+}
+
+/* ── Header / search input ───────────────────────────────────── */
+
+#dz-cmd-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--dz-border);
+}
+
+#dz-cmd-header > .fa-magnifying-glass {
+    color: var(--dz-text-muted);
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+#dz-cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--dz-text);
+    font-size: 16px;
+    font-family: inherit;
+    caret-color: var(--dz-accent);
+    min-width: 0;
+}
+
+#dz-cmd-input::placeholder {
+    color: var(--dz-text-muted);
+    font-weight: 400;
+}
+
+.dz-cmd-esc {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--dz-text-muted);
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-radius: 5px;
+    padding: 3px 7px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+}
+.dz-cmd-esc:hover { color: var(--dz-text); }
+
+/* ── Results list ────────────────────────────────────────────── */
+
+#dz-cmd-list {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 6px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dz-border) transparent;
+}
+
+.dz-cmd-section {
+    padding: 8px 18px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dz-text-muted);
+    user-select: none;
+}
+
+.dz-cmd-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 18px;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.08s;
+    min-height: 52px;
+    flex-wrap: wrap;
+}
+
+.dz-cmd-item:hover,
+.dz-cmd-item--active {
+    background: rgba(var(--dz-accent-rgb), 0.10);
+}
+
+.dz-cmd-item--active {
+    background: rgba(var(--dz-accent-rgb), 0.13);
+}
+
+/* Icon bubble */
+.dz-cmd-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    color: var(--dz-text-muted);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.dz-cmd-icon--on {
+    background: rgba(var(--dz-accent-rgb), 0.15);
+    border-color: rgba(var(--dz-accent-rgb), 0.35);
+    color: var(--dz-accent);
+}
+
+/* Body: name + meta */
+.dz-cmd-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dz-cmd-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dz-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dz-cmd-meta {
+    font-size: 11px;
+    color: var(--dz-text-muted);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Match highlight */
+mark.dz-cmd-mark {
+    background: rgba(var(--dz-accent-rgb), 0.25);
+    color: var(--dz-accent);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* State badge — fixed width so values align in the same column */
+.dz-cmd-state {
+    flex-shrink: 0;
+    width: 82px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--dz-text-muted);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dz-cmd-state--on {
+    color: var(--dz-accent);
+}
+
+/* Enter hint */
+.dz-cmd-hint {
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.dz-cmd-item--active .dz-cmd-hint,
+.dz-cmd-item:hover .dz-cmd-hint {
+    opacity: 1;
+}
+
+.dz-cmd-hint kbd {
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--dz-text-muted);
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 2px 6px;
+}
+
+/* Navigate button (arrow) — always present, revealed on hover/active */
+.dz-cmd-nav-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--dz-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dz-text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s, background 0.1s;
+    margin-right: 2px;
+}
+
+.dz-cmd-item--active .dz-cmd-nav-btn,
+.dz-cmd-item:hover .dz-cmd-nav-btn {
+    opacity: 1;
+}
+
+.dz-cmd-nav-btn:hover {
+    background: rgba(var(--dz-accent-rgb), 0.15);
+    color: var(--dz-accent);
+    border-color: var(--dz-accent);
+}
+
+/* Dimmer slider row */
+.dz-cmd-slider-row {
+    flex-basis: 100%;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0 2px 48px;
+}
+
+.dz-cmd-slider-row--visible {
+    display: flex;
+}
+
+.dz-cmd-slider {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--dz-accent);
+    cursor: pointer;
+}
+
+.dz-cmd-slider-val {
+    font-size: 12px;
+    color: var(--dz-text-muted);
+    min-width: 34px;
+    text-align: right;
+}
+
+/* Empty state */
+.dz-cmd-empty {
+    padding: 32px 18px;
+    text-align: center;
+    color: var(--dz-text-muted);
+    font-size: 14px;
+}
+
+/* Loading state */
+.dz-cmd-loading {
+    padding: 24px 18px;
+    text-align: center;
+    color: var(--dz-text-muted);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* ── Footer keyboard hints ───────────────────────────────────── */
+
+#dz-cmd-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 18px;
+    border-top: 1px solid var(--dz-border);
+    font-size: 11px;
+    color: var(--dz-text-muted);
+}
+
+.dz-cmd-footer-tip {
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+.dz-cmd-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+#dz-cmd-footer kbd {
+    font-size: 10px;
+    font-family: inherit;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-right: 2px;
+}
+
+/* ── Light mode overrides ────────────────────────────────────── */
+
+body.dz-light #dz-cmd-overlay {
+    background: rgba(0, 0, 0, 0.35);
+}
+
+body.dz-light #dz-cmd-box {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* ── Domoticz search bar → command palette trigger (pure CSS) ──── */
+/* Applies before first render — zero flicker, no JS DOM mutations. */
+
+/* Style the container as a pill button */
+#tbFiltSearch {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 3px 8px !important;
+    border: 1px solid var(--dz-border) !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
+
+#tbFiltSearch:hover {
+    border-color: var(--dz-accent) !important;
+    box-shadow: 0 0 0 2px rgba(var(--dz-accent-rgb), 0.15) !important;
+}
+
+/* Hide results/clear button — superseded by palette */
+#tbFiltSearch #tbResults {
+    display: none !important;
+}
+
+/* Keep the #tbSearch icon span, style it consistently */
+#tbFiltSearch #tbSearch {
+    pointer-events: none !important;
+    font-size: 12px !important;
+    opacity: 0.7 !important;
+}
+
+/* Make the input an invisible full-size click target */
+#tbFiltSearch input.jsLiveSearch {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    cursor: pointer !important;
+    z-index: 1 !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Ctrl+K badge shown via CSS — always correct, no JS timing */
+#tbFiltSearch::after {
+    content: "Ctrl\00a0K";
+    display: inline-block !important;
+    background: var(--dz-surface-2) !important;
+    border: 1px solid var(--dz-border) !important;
+    border-bottom-width: 2px !important;
+    border-radius: 4px !important;
+    padding: 1px 5px !important;
+    font-size: 10px !important;
+    color: var(--dz-text-muted) !important;
+    font-family: inherit !important;
+    pointer-events: none !important;
+    white-space: nowrap !important;
+    line-height: 1.4 !important;
 }
