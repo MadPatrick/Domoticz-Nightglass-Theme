@@ -3041,6 +3041,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var _apiAvailable  = true;  // false if Domoticz API is unreachable
     var _useNewApi     = false; // true when build ≥ 17806 (ThemeSettings in getsettings)
     var _saveTimer     = null;  // debounce handle for API writes
+    var _dirty         = false; // true when in-memory changes not yet saved to DB
     var LS_KEY         = 'ngThemeSettings';
 
     /* ── Domoticz API helper ──────────────────────────────────────── */
@@ -3075,6 +3076,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Shows or hides the persistent "unsaved changes" banner inside the panel.
+    function _showUnsavedBanner(show) {
+        if (!_useNewApi) return;
+        var banner = document.getElementById('ng-unsaved-banner');
+        if (banner) banner.style.display = show ? '' : 'none';
+    }
+
     // Updates Angular scope's ThemeSettings in-memory so the value is
     // included when scope.StoreSettings() is called later from the Save button.
     // No direct storesettings API call — avoids any risk of clobbering other
@@ -3089,6 +3097,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 scope.ThemeSettings[THEME_NAME] = _settings;
             });
         } catch (e) {}
+        _dirty = true;
+        _showUnsavedBanner(true);
     }
 
     // Persists settings to the Domoticz database by calling Angular's
@@ -3108,6 +3118,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 scope.ThemeSettings[THEME_NAME] = _settings;
             });
             scope.StoreSettings();
+            _dirty = false;
+            _showUnsavedBanner(false);
             if (btn) {
                 var orig = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
@@ -3836,6 +3848,13 @@ document.addEventListener('DOMContentLoaded', function () {
             '<div class="ng-preset-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading presets…</div>' +
             '</div></div></div>' +
 
+            (_useNewApi
+                ? '<div id="ng-unsaved-banner" class="ng-unsaved-banner" style="' + (_dirty ? '' : 'display:none;') + '">' +
+                  '<i class="fa-solid fa-triangle-exclamation"></i>' +
+                  ' You have unsaved changes — click <strong>Save to Domoticz</strong> to persist across all browsers.' +
+                  '</div>'
+                : '') +
+
             '<div class="ng-settings-grid">' +
 
             /* Left column: Icons, Appearance, Effects */
@@ -4160,7 +4179,6 @@ document.addEventListener('DOMContentLoaded', function () {
             style.id = 'dz-ng-settings-hide';
             style.textContent =
                 '#settingscontent.ng-showing #my-tab-content { display: none !important; }' +
-                '#settingscontent.ng-showing .sub-tabs-apply { display: none !important; }' +
                 '#settingscontent.ng-showing #ng-theme-settings-wrap { display: block !important; }';
             document.head.appendChild(style);
         }
