@@ -730,6 +730,107 @@ if (document.readyState === 'loading') {
         return true;
     }
 
+    /* ── SVG floorplan icon replacement ───────────────────────────
+       Domoticz floorplans render device icons as SVG <image> elements
+       (xlink:href), not HTML <img> (src).  We replace them with SVG
+       <foreignObject> containers holding FA <i> elements so the icon
+       set stays consistent with every other page.
+       When Domoticz updates a device's state it replaces the entire
+       <image> element (not just its href), so the MutationObserver
+       childList path already handles live updates.                    */
+
+    var XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+    function getSVGHref(el) {
+        return el.getAttribute('href') ||
+               el.getAttributeNS(XLINK_NS, 'href') ||
+               el.getAttribute('xlink:href') || '';
+    }
+
+    function processSVGImageEl(el) {
+        if (!el || el.nodeName.toLowerCase() !== 'image') return false;
+        if (el.getAttribute('data-dz-replaced') ||
+            el.getAttribute('data-dz-skipped'))  return false;
+
+        var src = getSVGHref(el);
+        if (!src || src.indexOf('{{') !== -1) return false;
+
+        if (shouldSkip(src)) {
+            el.setAttribute('data-dz-skipped', 'true');
+            return false;
+        }
+
+        var resolved = resolveIcon(src);
+        if (!resolved) {
+            el.setAttribute('data-dz-skipped', 'true');
+            return false;
+        }
+
+        var w      = parseFloat(el.getAttribute('width')  || 32);
+        var h      = parseFloat(el.getAttribute('height') || w);
+        var x      = parseFloat(el.getAttribute('x') || 0);
+        var y      = parseFloat(el.getAttribute('y') || 0);
+        var iconPx = Math.round(Math.min(w, h) * 0.72);
+
+        // Visually hide the original but keep it for event bubbling
+        el.style.opacity      = '0';
+        el.style.pointerEvents = 'none';
+        el.setAttribute('data-dz-replaced', 'true');
+        el.setAttribute('data-dz-orig-href', src);
+
+        // <foreignObject> hosts an HTML <i> inside SVG
+        var fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+        fo.setAttribute('x',       x);
+        fo.setAttribute('y',       y);
+        fo.setAttribute('width',   w);
+        fo.setAttribute('height',  h);
+        fo.setAttribute('overflow', 'visible');
+        fo.setAttribute('class',   'dz-fp-icon-wrap');
+
+        // Copy interactive attributes so floorplan device popups still trigger
+        ['onclick', 'onmouseover', 'onmouseout', 'ontouchstart', 'ontouchend'].forEach(function (a) {
+            var v = el.getAttribute(a);
+            if (v) fo.setAttribute(a, v);
+        });
+        var cStyle = (el.getAttribute('style') || '').match(/cursor\s*:\s*([^;]+)/);
+        fo.style.cursor = cStyle ? cStyle[1].trim() : 'pointer';
+
+        var iEl = document.createElement('i');
+        iEl.className = resolved.cls;
+        if (resolved.colorOn)  iEl.setAttribute('data-dz-color-on',  resolved.colorOn);
+        if (resolved.colorOff) iEl.setAttribute('data-dz-color-off', resolved.colorOff);
+        iEl.setAttribute('data-dz-state', resolved.color === resolved.colorOn ? 'on' : 'off');
+        iEl.style.cssText = [
+            'font-size:'    + iconPx + 'px',
+            'color:'        + (resolved.color || '#b0b3c6'),
+            'width:'        + w + 'px',
+            'height:'       + h + 'px',
+            'display:flex',
+            'align-items:center',
+            'justify-content:center',
+            'pointer-events:none',
+            'box-sizing:border-box',
+            'margin:0',
+            'padding:0'
+        ].join(';');
+
+        fo.appendChild(iEl);
+        iconMap.set(el, fo);
+
+        el.parentNode.insertBefore(fo, el.nextSibling);
+        return true;
+    }
+
+    function replaceSVGIcons(root) {
+        if (!root || !root.querySelectorAll) return;
+        /* querySelector('image') selects SVG <image> elements */
+        var svgImgs = root.querySelectorAll(
+            'image:not([data-dz-replaced]):not([data-dz-skipped])');
+        for (var i = 0; i < svgImgs.length; i++) {
+            processSVGImageEl(svgImgs[i]);
+        }
+    }
+
     /* -- Core replacement function -------------------------------- */
 
     function getSizeClass(img, src) {
@@ -1034,6 +1135,15 @@ if (document.readyState === 'loading') {
            and re-attaches them shortly after. Cleaning up too eagerly
            causes icons to disappear on those rows. */
         if (node.isConnected) return;
+
+        /* SVG <image> (floorplan): remove the associated <foreignObject> */
+        if (node.nodeName && node.nodeName.toLowerCase() === 'image') {
+            var fo = iconMap.get(node);
+            if (fo && fo.parentNode) fo.parentNode.removeChild(fo);
+            iconMap.delete(node);
+            return;
+        }
+
         if (node.tagName === 'IMG') {
             iconMap.delete(node);
         }
@@ -1113,6 +1223,9 @@ if (document.readyState === 'loading') {
         if (recovered) {
             processNewImages(root);
         }
+
+        /* --- Pass 3: SVG <image> elements on floorplan pages --- */
+        replaceSVGIcons(root);
     }
 
     /* -- Helper: copy relevant attributes from img to icon -------- */
@@ -1184,16 +1297,26 @@ if (document.readyState === 'loading') {
            when the MutationObserver fires, so this usually succeeds.          */
         try {
             if (!node || node.nodeType !== 1) return;
+            /* SVG <image> element (floorplan device icon) */
+            if (node.nodeName && node.nodeName.toLowerCase() === 'image') {
+                processSVGImageEl(node);
+                return;
+            }
             if (node.tagName === 'IMG') {
                 if (node.parentNode) processImg(node);
                 return;
             }
             processNewImages(node);
+            replaceSVGIcons(node);
         } catch (_) { /* ignore — fallback below */ }
         /* Also schedule an async pass as safety net in case Angular hasn't
            finished compiling the node's children yet.                       */
         setTimeout(function () {
             if (!node || node.nodeType !== 1) return;
+            if (node.nodeName && node.nodeName.toLowerCase() === 'image') {
+                processSVGImageEl(node);
+                return;
+            }
             if (node.tagName === 'IMG') {
                 if (node.parentNode) processImg(node);
                 return;
@@ -3585,63 +3708,35 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!preset || !preset.colors) return;
         var colors = preset.colors;
         var keys = Object.keys(colors);
-        var total = keys.length;
-        var completed = 0;
 
-        // Show progress toast
-        var toast = document.createElement('div');
-        toast.className = 'ng-preset-toast';
-        toast.innerHTML =
-            '<div class="ng-preset-toast-inner">' +
-            '<i class="fa-solid fa-palette ng-preset-toast-icon"></i>' +
-            '<div class="ng-preset-toast-content">' +
-            '<span class="ng-preset-toast-label">Applying theme…</span>' +
-            '<div class="ng-preset-toast-bar"><div class="ng-preset-toast-fill"></div></div>' +
-            '<span class="ng-preset-toast-pct">0 / ' + total + '</span>' +
-            '</div></div>';
-        document.body.appendChild(toast);
-        var fill = toast.querySelector('.ng-preset-toast-fill');
-        var pct = toast.querySelector('.ng-preset-toast-pct');
-        var label = toast.querySelector('.ng-preset-toast-label');
-
-        // Force reflow then add visible class for entrance animation
-        toast.offsetHeight;
-        toast.classList.add('ng-preset-toast--visible');
-
-        // Apply all color keys to _settings locally (synchronous), then persist
-        // the whole blob with one API call — much faster than one call per key.
-        keys.forEach(function (key) {
-            _settings[key] = colors[key];
-            completed++;
-            var percent = Math.round((completed / total) * 100);
-            fill.style.width = percent + '%';
-            pct.textContent = completed + ' / ' + total;
-        });
+        // Apply all color keys locally (synchronous), then one API call
+        keys.forEach(function (key) { _settings[key] = colors[key]; });
         saveToLocalStorage();
         if (_apiAvailable) saveJsonUvar();
 
-        Promise.resolve().then(function () {
-            applySettings();
-            label.textContent = 'Theme applied!';
-            fill.style.width = '100%';
-            pct.textContent = total + ' / ' + total;
-            toast.querySelector('.ng-preset-toast-icon').className = 'fa-solid fa-circle-check ng-preset-toast-icon';
+        applySettings();
 
-            // Re-render the settings panel to reflect new colors
-            var wrap = document.getElementById('ng-theme-settings-wrap');
-            if (wrap) {
-                var presetsBody = wrap.querySelector('#ngPresetsBody');
-                var presetsWereOpen = presetsBody && presetsBody.style.display !== 'none';
-                wrap.innerHTML = buildPanel({ presetsOpen: presetsWereOpen });
-                bindEvents(wrap);
-                loadPresets(wrap);
-            }
+        // Re-render the settings panel to reflect new colors
+        var wrap = document.getElementById('ng-theme-settings-wrap');
+        if (wrap) {
+            var presetsBody = wrap.querySelector('#ngPresetsBody');
+            var presetsWereOpen = presetsBody && presetsBody.style.display !== 'none';
+            wrap.innerHTML = buildPanel({ presetsOpen: presetsWereOpen });
+            bindEvents(wrap);
+            loadPresets(wrap);
+        }
 
-            setTimeout(function () {
-                toast.classList.remove('ng-preset-toast--visible');
-                setTimeout(function () { toast.remove(); }, 350);
-            }, 1500);
-        });
+        // Show a simple confirmation toast
+        if (window.ngShowToast) {
+            window.ngShowToast({
+                icon:     'fa-palette',
+                color:    'var(--dz-accent)',
+                title:    preset.name || 'Theme preset',
+                body:     'Theme applied',
+                type:     'success',
+                duration: 3000
+            });
+        }
     }
 
     /* ── Inject panel into settings page ───────────────────────── */
