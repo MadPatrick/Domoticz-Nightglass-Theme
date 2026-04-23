@@ -6541,26 +6541,48 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) { setTimeout(hookAngular, 600); }
     }
 
-    // ── Navbar badge ───────────────────────────────────────────────
-    // Inject a small Ctrl+K pill next to the theme toggle so the feature
-    // is discoverable from the main page.
+    // ── Intercept Domoticz search bar ──────────────────────────────
+    // Replace the built-in live-search field with a command-palette trigger.
+    // The original #tbFiltSearch element stays in the DOM (Angular manages its
+    // visibility via ng-show), we just hijack its click/focus behaviour and
+    // restyle it to show the Ctrl+K hint.
 
-    function injectNavBadge() {
-        if (document.getElementById('dz-cmd-nav-badge')) return;
-        var inner = document.querySelector('.navbar-inner, .navbar-right, .nav.pull-right');
-        if (!inner) { setTimeout(injectNavBadge, 800); return; }
-        var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
-        var badge = document.createElement('span');
-        badge.id = 'dz-cmd-nav-badge';
-        badge.title = 'Command palette (' + (isMac ? '\u2318' : 'Ctrl') + '+K)';
-        badge.innerHTML =
-            '<i class="fa-solid fa-magnifying-glass"></i>' +
-            '<kbd>' + (isMac ? '\u2318' : 'Ctrl') + '</kbd>' +
-            '<kbd>K</kbd>';
-        badge.addEventListener('click', function () {
-            _overlay ? closePalette() : openPalette();
-        });
-        inner.appendChild(badge);
+    var _isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
+    function patchSearchBar(bar) {
+        if (bar.classList.contains('dz-cmd-search-patched')) return;
+        bar.classList.add('dz-cmd-search-patched');
+
+        // Update placeholder so the hint is obvious
+        var input = bar.querySelector('input.jsLiveSearch');
+        if (input) {
+            input.setAttribute('placeholder',
+                (_isMac ? '\u2318' : 'Ctrl') + '+K \u2014 Search devices & scenes\u2026');
+            input.setAttribute('readonly', 'true'); // prevent native keyboard on mobile
+            // Open palette on any interaction
+            input.addEventListener('mousedown', function (e) { e.preventDefault(); openPalette(); });
+            input.addEventListener('touchend',  function (e) { e.preventDefault(); openPalette(); });
+            input.addEventListener('focus',     function ()  { this.blur(); openPalette(); });
+        }
+
+        // Also intercept the search-icon click
+        var icon = bar.querySelector('#tbSearch, .jsTbSearch');
+        if (icon) {
+            icon.addEventListener('click', function (e) { e.stopPropagation(); openPalette(); });
+        }
+    }
+
+    function watchSearchBar() {
+        var bar = document.getElementById('tbFiltSearch');
+        if (!bar) { setTimeout(watchSearchBar, 600); return; }
+
+        // Patch immediately if visible (not ng-hide'd)
+        if (!bar.classList.contains('ng-hide')) patchSearchBar(bar);
+
+        // Re-patch whenever Angular makes it visible again (route change)
+        new MutationObserver(function () {
+            if (!bar.classList.contains('ng-hide')) patchSearchBar(bar);
+        }).observe(bar, { attributes: true, attributeFilter: ['class'] });
     }
 
     // ── Init ───────────────────────────────────────────────────────
@@ -6568,12 +6590,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             setTimeout(fetchAll, 800);
-            setTimeout(injectNavBadge, 600);
+            setTimeout(watchSearchBar, 400);
             hookAngular();
         });
     } else {
         setTimeout(fetchAll, 800);
-        setTimeout(injectNavBadge, 600);
+        setTimeout(watchSearchBar, 400);
         hookAngular();
     }
 })();
