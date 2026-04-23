@@ -2458,10 +2458,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (lastRefresh[idx] && (now - lastRefresh[idx]) < REFRESH_COOLDOWN) return;
         lastRefresh[idx] = now;
 
-        var card = findCardByIdx(idx);
-        if (!card) return;
-        var wrap = card.querySelector('.dz-sparkline-wrap');
-        if (!wrap) return;
+        // Guard: only fetch for cards that already have a sparkline wrap.
+        // Do NOT capture card/wrap here — Angular can re-render the card while
+        // the HTTP request is in flight, leaving those references stale/detached.
+        var guardCard = findCardByIdx(idx);
+        if (!guardCard || !guardCard.querySelector('.dz-sparkline-wrap')) return;
 
         (function fetchHour(si) {
             if (si >= SENSORS.length) return;
@@ -2482,6 +2483,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (vals.length < 2) { fetchHour(si + 1); return; }
                     if (vals.length > MAX_POINTS) vals = vals.slice(vals.length - MAX_POINTS);
                     cache[idx] = vals;
+                    // Re-look up card and wrap from live DOM — the pre-fetch
+                    // reference (guardCard) may now be detached/stale.
+                    var card = findCardByIdx(idx);
+                    if (!card) return;
+                    var wrap = card.querySelector('.dz-sparkline-wrap');
+                    if (!wrap) {
+                        // Wrap was removed while request was in flight — re-insert.
+                        card.style.position = 'relative';
+                        wrap = document.createElement('div');
+                        wrap.className = 'dz-sparkline-wrap';
+                        card.insertBefore(wrap, card.firstChild);
+                    }
                     wrap.innerHTML = svgSparkline(vals, idx);
                     wrap.style.display = '';
                 })
@@ -2515,7 +2528,9 @@ document.addEventListener('DOMContentLoaded', function () {
         _sparkObs.observe(document.body, { subtree: true, childList: true });
     }
 
-    // Periodic safety net: refresh all visible sparklines every 5 minutes
+    // Safety-net periodic refresh — only needed when Angular's time_update is
+    // not available (e.g., websocket disconnected).  The time_update hook above
+    // handles the normal ~60 s refresh cadence, so this interval is long.
     function schedulePeriodicRefresh() {
         setInterval(function () {
             var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
@@ -2525,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 var idx = getCardIdx(cards[c]);
                 if (idx) refreshSingle(idx);
             }
-        }, 5 * 60 * 1000);
+        }, 10 * 60 * 1000); // 10-min fallback; time_update fires every ~60 s normally
     }
 
     if (document.readyState === 'loading') {
@@ -2585,13 +2600,33 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 0);
     }
 
+    function refreshAllVisible() {
+        // Refresh every visible sparkline card via HTTP (respects REFRESH_COOLDOWN).
+        // Called on time_update (~60 s) so sparklines stay fresh even when
+        // device_update events are not broadcast for sensor-type devices.
+        var cards = document.querySelectorAll('div.item.itemBlock, .itemBlock > div.item');
+        for (var c = 0; c < cards.length; c++) {
+            var wrap = cards[c].querySelector('.dz-sparkline-wrap');
+            if (!wrap || wrap.style.display === 'none') continue;
+            var idx = getCardIdx(cards[c]);
+            if (idx) refreshSingle(idx);
+        }
+    }
+
     function attachSparklineWsHook() {
         if (!window.angular) { setTimeout(attachSparklineWsHook, 600); return; }
         var bodyEl = angular.element(document.body);
         if (!bodyEl || !bodyEl.injector || !bodyEl.injector()) { setTimeout(attachSparklineWsHook, 400); return; }
         try {
             var $rootScope = bodyEl.injector().get('$rootScope');
+            // Fast path: instant DOM update from WebSocket device data (no HTTP).
+            // Fires when Domoticz pushes a device_request message; may not cover
+            // all sensor types depending on which Angular controllers are active.
             $rootScope.$on('device_update', function (evt, device) { wsAppendSparkline(device); });
+            // Reliable fallback: Domoticz broadcasts time_update every ~60 s
+            // regardless of which page is open.  This ensures sparklines always
+            // stay fresh even when device_update is not delivered for sensors.
+            $rootScope.$on('time_update', function () { refreshAllVisible(); });
         } catch (e) {
             setTimeout(attachSparklineWsHook, 600);
         }
