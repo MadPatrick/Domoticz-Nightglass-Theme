@@ -1490,6 +1490,28 @@ if (document.readyState === 'loading') {
        observers in the processCards block) can trigger a replacement pass. */
     window._dzScheduleBurst = scheduleBurst;
 
+    /* Expose a device-icon lookup for other modules (e.g. command palette).
+       Given a Domoticz device object with TypeImg + Status fields, returns
+       { icon: 'fa-solid fa-...', color: '#rrggbb' } or null.               */
+    window._dzIconForDevice = function (device) {
+        var typeImg = device.TypeImg || '';
+        // Build a synthetic image path that parseDeviceSrc / resolveIcon can parse
+        var on   = !!(device.Status && (
+            ['On','Group On','Chime','Panic','Mixed'].indexOf(device.Status) >= 0 ||
+            device.Status.indexOf('Set ') === 0));
+        var suffix = on ? '_On' : '_Off';
+        var src = 'images/' + typeImg + '48' + suffix + '.png';
+        var r = resolveIcon(src);
+        if (r && r.cls) {
+            // strip dz-fa-device / dz-wind helper classes — just the FA classes
+            var fa = r.cls.split(' ').filter(function (c) {
+                return c.indexOf('fa-') === 0 || c === 'fa-solid' || c === 'fa-regular';
+            }).join(' ');
+            return { icon: fa || r.cls, color: r.color };
+        }
+        return null;
+    };
+
     /* ── Floorplan popup: immediate icon replacement + theme patch ───
        Device.popupRedraw recreates the popup SVG content each time it
        is shown, including new <image> elements for the device icon.
@@ -6115,33 +6137,50 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Icon lookup ────────────────────────────────────────────────
 
     function iconFor(device) {
+        // 1. Best: read the already-resolved FA icon from the live DOM card
         var tbl = document.getElementById('itemtable' + device.idx);
         if (tbl) {
             var fa = tbl.querySelector('i.dz-fa-device');
             if (fa) {
-                var m = fa.className.match(/fa-[\w-]+/g);
-                if (m && m.length) return m[m.length - 1];
+                // Return the full icon class string (e.g. "fa-solid fa-lightbulb")
+                var parts = fa.className.split(' ').filter(function (c) {
+                    return c === 'fa-solid' || c === 'fa-regular' || c.indexOf('fa-') === 0;
+                });
+                // Remove helper classes
+                parts = parts.filter(function (c) {
+                    return c !== 'dz-fa-device' && c !== 'dz-wind';
+                });
+                if (parts.length) return parts.join(' ');
             }
         }
+        // 2. Use the icon replacement system's resolver via TypeImg
+        if (window._dzIconForDevice && device.TypeImg) {
+            var r = window._dzIconForDevice(device);
+            if (r && r.icon) return r.icon;
+        }
+        // 3. Last resort: basic type-based fallbacks
         var t  = (device.Type       || '').toLowerCase();
         var st = (device.SwitchType || '').toLowerCase();
-        if (t.indexOf('temp')    >= 0) return 'fa-thermometer-half';
-        if (t.indexOf('color')   >= 0 || t.indexOf('light') >= 0) return 'fa-lightbulb';
-        if (t === 'scene')              return 'fa-play-circle';
-        if (t === 'group')              return 'fa-layer-group';
-        if (t.indexOf('wind')    >= 0) return 'fa-wind';
-        if (t.indexOf('rain')    >= 0) return 'fa-cloud-rain';
-        if (t.indexOf('humid')   >= 0) return 'fa-droplet';
-        if (t.indexOf('p1')      >= 0 || t.indexOf('usage') >= 0) return 'fa-bolt';
-        if (t.indexOf('current') >= 0) return 'fa-gauge';
-        if (st.indexOf('blind')  >= 0) return 'fa-blinds';
-        if (st.indexOf('door lock') >= 0) return 'fa-lock';
-        if (st.indexOf('door')   >= 0) return 'fa-door-closed';
-        if (st.indexOf('motion') >= 0) return 'fa-person-walking';
-        if (st.indexOf('smoke')  >= 0) return 'fa-fire-smoke';
-        if (st.indexOf('contact')>= 0) return 'fa-sensor';
-        if (st.indexOf('dimmer') >= 0) return 'fa-sliders';
-        return 'fa-circle-dot';
+        var sub = (device.SubType   || '').toLowerCase();
+        if (t.indexOf('temp')    >= 0) return 'fa-solid fa-temperature-half';
+        if (t.indexOf('color')   >= 0 || t.indexOf('light') >= 0) return 'fa-solid fa-lightbulb';
+        if (t === 'scene')              return 'fa-solid fa-play-circle';
+        if (t === 'group')              return 'fa-solid fa-layer-group';
+        if (t.indexOf('wind')    >= 0) return 'fa-solid fa-wind';
+        if (t.indexOf('rain')    >= 0) return 'fa-solid fa-cloud-showers-heavy';
+        if (t.indexOf('humid')   >= 0) return 'fa-solid fa-droplet';
+        if (t.indexOf('p1')      >= 0 || t.indexOf('usage') >= 0 ||
+            sub.indexOf('electric')>= 0)  return 'fa-solid fa-bolt';
+        if (t.indexOf('current') >= 0) return 'fa-solid fa-gauge';
+        if (t.indexOf('general') >= 0 && sub.indexOf('counter') >= 0) return 'fa-solid fa-hashtag';
+        if (st.indexOf('blind')  >= 0) return 'fa-solid fa-chevron-down';
+        if (st.indexOf('door lock') >= 0) return 'fa-solid fa-lock';
+        if (st.indexOf('door')   >= 0) return 'fa-solid fa-door-closed';
+        if (st.indexOf('motion') >= 0) return 'fa-solid fa-person-running';
+        if (st.indexOf('smoke')  >= 0) return 'fa-solid fa-triangle-exclamation';
+        if (st.indexOf('contact')>= 0) return 'fa-solid fa-sensor';
+        if (st.indexOf('dimmer') >= 0) return 'fa-solid fa-circle-half-stroke';
+        return 'fa-solid fa-circle-dot';
     }
 
     // ── Device state helpers ───────────────────────────────────────
@@ -6170,7 +6209,15 @@ document.addEventListener('DOMContentLoaded', function () {
                .indexOf(d.SwitchType || '') >= 0;
     }
 
-    function stateLabel(d) { return d.Data || d.Status || ''; }
+    function stateLabel(d) {
+        // Toggleable devices: prefer Status ("On" / "Off" / "Set 75%")
+        if (isToggleable(d)) return d.Status || d.Data || '';
+        var data = d.Data || '';
+        if (!data) return d.Status || '';
+        // P1/energy meters return multiple ';'-separated values — show only the first
+        var first = data.split(';')[0].trim();
+        return first || d.Status || '';
+    }
 
     // Maps a device to the Domoticz Angular route where it appears
     function deviceRoute(d) {

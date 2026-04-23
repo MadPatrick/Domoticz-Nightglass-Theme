@@ -1102,58 +1102,142 @@ i.dz-fa-nav {
    ══════════════════════════════════════════════════════════════════ */
 
 #topBar {
-    border-bottom: 1px solid var(--dz-surface-3);
-    padding-bottom: 8px;
-    margin-bottom: 8px;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 6px 0 10px !important;
+    margin-bottom: 10px !important;
+    border-bottom: 1px solid var(--dz-border) !important;
 }
 
-#tbFiltSearch INPUT {
-    background: var(--dz-surface-2) !important;
-    color: var(--dz-text) !important;
-    border: 1px solid var(--dz-border-b) !important;
-    border-radius: 20px !important;
-    padding: 4px 12px !important;
-    font-size: 0.82rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+/* Left group: search + room */
+#tbFilters {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px;
+    flex: 1 1 auto;
 }
 
-    #tbFiltSearch INPUT:focus {
-        background: var(--dz-border) !important;
-        color: var(--dz-text) !important;
-        border-color: var(--dz-accent) !important;
-        box-shadow: 0 0 0 2px rgba(var(--dz-accent-rgb), 0.15) !important;
-        outline: none !important;
-    }
+/* Right group: time + sun + links */
+#tbTimeSun,
+#tbLinks {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* ── Room selector ─────────────────────────────────────────────── */
+#tbFiltRooms {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px;
+}
+
+#tbFiltRooms .tbIcon {
+    color: var(--dz-text-muted);
+    font-size: 13px;
+    pointer-events: none;
+}
 
 #tbFiltRooms SELECT {
     background: var(--dz-surface-2) !important;
     color: var(--dz-text) !important;
-    border: 1px solid var(--dz-border-b) !important;
-    border-radius: 6px !important;
-    padding: 4px 8px;
+    border: 1px solid var(--dz-border) !important;
+    border-radius: 8px !important;
+    padding: 3px 24px 3px 8px !important;
+    font-size: 12px !important;
+    height: 28px !important;
+    cursor: pointer !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+    appearance: auto;
 }
 
+#tbFiltRooms SELECT:hover {
+    border-color: var(--dz-accent) !important;
+}
+
+#tbFiltRooms SELECT:focus {
+    border-color: var(--dz-accent) !important;
+    box-shadow: 0 0 0 2px rgba(var(--dz-accent-rgb), 0.15) !important;
+    outline: none !important;
+}
+
+/* ── Clock ─────────────────────────────────────────────────────── */
+#jsTbTime {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dz-text);
+    letter-spacing: 0.02em;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-radius: 8px;
+    padding: 3px 9px;
+}
+
+/* ── Sun group ─────────────────────────────────────────────────── */
 #tbSunGroup {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px;
+    background: var(--dz-surface-2);
+    border: 1px solid var(--dz-border);
+    border-radius: 8px;
+    padding: 3px 9px;
+    font-size: 12px;
     color: var(--dz-text-muted);
 }
 
-#tbTimeSun .fa-sun {
-    color: var(--dz-warning);
+#tbIconSun .fa-sun {
+    color: var(--dz-warning) !important;
+    font-size: 13px;
 }
 
+#tbSunRise,
+#tbSunSet {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 12px;
+}
+
+#tbSunRise .fa-arrow-up   { color: #f59e42; }
+#tbSunSet  .fa-arrow-down { color: #7eb6f5; }
+
+/* Divider between rise and set */
+#tbSunRise::after {
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    background: var(--dz-border);
+    margin-left: 6px;
+}
+
+/* ── Quick-links ───────────────────────────────────────────────── */
 #tbLinks a.btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
     background: var(--dz-surface-2) !important;
-    border: 1px solid var(--dz-border-b) !important;
-    color: var(--dz-text) !important;
-    border-radius: 6px !important;
-    font-size: 0.8rem;
-    transition: border-color 0.2s, background 0.2s;
+    border: 1px solid var(--dz-border) !important;
+    color: var(--dz-text-muted) !important;
+    border-radius: 8px !important;
+    padding: 3px 10px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    transition: border-color 0.15s, background 0.15s, color 0.15s !important;
 }
 
-    #tbLinks a.btn:hover {
-        background: var(--dz-border) !important;
-        border-color: var(--dz-accent) !important;
-    }
+#tbLinks a.btn:hover {
+    background: rgba(var(--dz-accent-rgb), 0.1) !important;
+    border-color: var(--dz-accent) !important;
+    color: var(--dz-accent) !important;
+}
+
+/* The actual input is kept as an invisible overlay (see command palette section) */
 
 
 /* ══════════════════════════════════════════════════════════════════
