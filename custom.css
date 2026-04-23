@@ -1107,11 +1107,12 @@ i.dz-fa-nav {
 #topBar {
     display: flex !important;
     align-items: center !important;
-    flex-wrap: wrap;
-    gap: 6px 12px;
+    flex-wrap: nowrap !important;      /* always one row */
+    gap: 6px !important;
     padding: 6px 0 10px !important;
     margin-bottom: 10px !important;
     border-bottom: 1px solid var(--dz-border) !important;
+    overflow: hidden;                  /* clip instead of wrap */
 }
 
 /* ── Shared pill mixin applied to the topbar span groups ─────── */
@@ -1230,7 +1231,6 @@ i.dz-fa-nav {
     border-radius: 8px !important;
     font-size: 12px !important;
     font-weight: 500 !important;
-    line-height: 1 !important;
     transition: border-color 0.15s, background 0.15s, color 0.15s !important;
 }
 
@@ -1242,38 +1242,35 @@ i.dz-fa-nav {
 
 /* The actual search input is kept as an invisible overlay (see command palette section) */
 
-/* ── Responsive topbar ─────────────────────────────────────────── */
+/* ── Responsive topbar — single row, items hide progressively ───── */
 
-/* Medium — hide link labels, keep icons */
+/* ≤ 900px: button text → icon only; sun icon hidden */
 @media (max-width: 900px) {
-    #topBar { gap: 4px 8px; }
+    #topBar { gap: 4px !important; }
 
     #tbLinks a.btn span[data-i18n] { display: none !important; }
-    #tbLinks a.btn { padding: 0 8px !important; }
+    #tbLinks a.btn,
+    #tbLinks a.btn.btn-xs           { padding: 0 8px !important; }
 
-    /* Sun: hide icon label, keep times */
-    #tbIconSun { display: none !important; }
+    #tbIconSun                      { display: none !important; }
 }
 
-/* Small — hide sun group entirely, shrink room select */
-@media (max-width: 650px) {
-    #tbSunGroup { display: none !important; }
-
-    #comboroom { max-width: 110px !important; }
+/* ≤ 700px: hide clock */
+@media (max-width: 700px) {
+    #jsTbTime { display: none !important; }
 }
 
-/* Extra-small — hide clock too, stack filters full-width */
-@media (max-width: 480px) {
-    #topBar { --topbar-h: 24px; gap: 4px; }
-
-    #jsTbTime   { display: none !important; }
-    #tbFilters  { width: 100%; }
-
-    /* Room label icon disappears, keep select */
+/* ≤ 580px: hide sun group; hide room icon */
+@media (max-width: 580px) {
+    #tbSunGroup              { display: none !important; }
     #tbFiltRooms #tbIconRoom { display: none !important; }
+    #comboroom               { max-width: 100px !important; }
+}
 
-    /* Links: icon only */
-    #tbLinks a.btn { padding: 0 7px !important; }
+/* ≤ 420px: hide link buttons entirely */
+@media (max-width: 420px) {
+    #topBar { --topbar-h: 24px; }
+    #tbLinks { display: none !important; }
 }
 
 
