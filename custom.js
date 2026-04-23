@@ -3075,20 +3075,48 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Persists _settings via a direct storesettings POST with only the
-    // ThemeSettings field.  Domoticz (build ≥ 17806) treats it as a partial
-    // update — it stores only what is provided and leaves all other settings
-    // untouched.  This works from any page and causes no page reload.
-    function _saveViaThemeSettings() {
-        var body = new FormData();
-        var payload = {};
-        payload[THEME_NAME] = _settings;
-        body.append('ThemeSettings', JSON.stringify(payload));
-        fetch(BASE + 'json.htm?type=command&param=storesettings', {
-            method: 'POST',
-            credentials: 'same-origin',
-            body: body
-        });
+    // Updates Angular scope's ThemeSettings in-memory so the value is
+    // included when scope.StoreSettings() is called later from the Save button.
+    // No direct storesettings API call — avoids any risk of clobbering other
+    // Domoticz settings with a partial POST.
+    function _updateAngularScope() {
+        try {
+            var el = document.getElementById('maindiv') || document.body;
+            var scope = window.angular && angular.element(el).scope();
+            if (!scope) return;
+            scope.$apply(function () {
+                scope.ThemeSettings = scope.ThemeSettings || {};
+                scope.ThemeSettings[THEME_NAME] = _settings;
+            });
+        } catch (e) {}
+    }
+
+    // Persists settings to the Domoticz database by calling Angular's
+    // StoreSettings() — the same full-form save the settings page uses, so
+    // all other Domoticz settings are preserved.  Only callable from the
+    // Settings page (which is where the Nightglass panel lives).
+    function _saveToDomoticz(btn) {
+        try {
+            var el = document.getElementById('maindiv') || document.body;
+            var scope = window.angular && angular.element(el).scope();
+            if (!scope || !scope.StoreSettings) {
+                console.warn('Nightglass: StoreSettings not available on this page');
+                return;
+            }
+            scope.$apply(function () {
+                scope.ThemeSettings = scope.ThemeSettings || {};
+                scope.ThemeSettings[THEME_NAME] = _settings;
+            });
+            scope.StoreSettings();
+            if (btn) {
+                var orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
+                btn.disabled = true;
+                setTimeout(function () { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+            }
+        } catch (e) {
+            console.warn('Nightglass: _saveToDomoticz failed', e);
+        }
     }
 
     /* ── Legacy: single-variable JSON storage (user variables) ───────── */
@@ -3125,15 +3153,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Persists _settings to the server.  Debounced at 400 ms so rapid
-    // consecutive saveSetting() calls (e.g. applying a preset) collapse into
-    // one request.  Routes to the new ThemeSettings API on build ≥ 17806,
-    // and falls back to the legacy user-variable approach on older builds.
+    // Keeps Angular scope in sync on every setting change (debounced 400 ms).
+    // On build ≥ 17806 only updates the Angular scope in-memory — the actual
+    // database write happens when the user clicks "Save to Domoticz" in the
+    // panel footer, which calls scope.StoreSettings() so ALL Domoticz settings
+    // are written together (no partial-POST risk).
+    // On older builds falls back to the safe user-variable API.
     function saveJsonUvar() {
         clearTimeout(_saveTimer);
         _saveTimer = setTimeout(function () {
             if (_useNewApi) {
-                _saveViaThemeSettings();
+                _updateAngularScope();
                 return;
             }
             // Legacy path: store as a JSON user variable
@@ -3907,12 +3937,16 @@ document.addEventListener('DOMContentLoaded', function () {
             '<button class="ng-import-btn" id="ngImportBtn" title="Import settings from JSON file">' +
             '<i class="fa-solid fa-file-import"></i> Import</button>' +
             '<input type="file" id="ngImportFile" accept=".json" style="display:none">' +
+            (_useNewApi
+                ? '<button class="ng-save-btn" id="ngSaveBtn" title="Save settings to the Domoticz database">' +
+                  '<i class="fa-solid fa-floppy-disk"></i> Save to Domoticz</button>'
+                : '') +
             '</div>' +
             '<span class="ng-footer-note"><i class="fa-solid fa-cloud-arrow-up"></i> ' +
             (!_apiAvailable
                 ? 'API unavailable — settings are stored in this browser\'s local storage.'
                 : _useNewApi
-                    ? 'Settings are stored in the Domoticz preferences database and sync across all your browsers.'
+                    ? 'Changes apply instantly. Click <strong>Save to Domoticz</strong> to persist across all browsers.'
                     : 'Settings are stored as Domoticz user variables and sync across all your browsers.') +
             '</span></div>' +
 
@@ -4439,6 +4473,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 };
                 reader.readAsText(file);
                 this.value = ''; // allow re-importing the same file
+            });
+        }
+
+        // Save to Domoticz button (new API only)
+        var saveBtn = container.querySelector('#ngSaveBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function () {
+                _saveToDomoticz(this);
             });
         }
 
