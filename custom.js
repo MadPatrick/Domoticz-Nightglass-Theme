@@ -841,13 +841,15 @@ if (document.readyState === 'loading') {
             src.indexOf('gdown.') !== -1 ||
             src.indexOf('gequal.') !== -1 ||
             src.indexOf('equal.') !== -1)        return 'dz-fa-trend';
-        /* Action buttons in table rows */
+        /* Action buttons in table rows.
+           Use '/up.' and '/down.' (with path separator) to avoid false-
+           positives on 'setup.png' which contains the substring 'up.'. */
         if (src.indexOf('delete.') !== -1 ||
             src.indexOf('rename.') !== -1 ||
             src.indexOf('remove.') !== -1 ||
             src.indexOf('add.')    !== -1 ||
-            src.indexOf('up.')     !== -1 ||
-            src.indexOf('down.')   !== -1 ||
+            src.indexOf('/up.')    !== -1 ||
+            src.indexOf('/down.')  !== -1 ||
             src.indexOf('override.') !== -1)     return 'dz-fa-action';
         /* Table status / state icons */
         if (src.indexOf('ok.')      !== -1 ||
@@ -2962,18 +2964,20 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ==================================================================
  *  Nightglass Theme Settings Panel
  *  Injects a themed config panel into the Domoticz Settings page.
- *  Persists settings as Domoticz user variables so they sync across
- *  all browsers / devices.
+ *  On Domoticz build ≥ 17806 settings are persisted via the ThemeSettings
+ *  API (preferences DB).  On older builds the legacy ngTheme_settings user
+ *  variable is used as a fallback.  localStorage is always kept in sync as
+ *  a local cache so settings apply instantly on every page load.
  * ================================================================== */
 
 (function () {
     'use strict';
 
-    // All settings are stored as a single JSON string in one user variable,
-    // rather than one user variable per key.  This cuts API traffic from
-    // ~30 calls per load/save down to 1.
-    var UVAR_NAME = 'ngTheme_settings'; // the single JSON user variable
-    var UVAR_TYPE = 2;                  // Domoticz "string" type
+    // Domoticz build ≥ 17806 supports ThemeSettings in the preferences DB.
+    // Older builds use a user variable (ngTheme_settings) as fallback.
+    var THEME_NAME = 'Nightglass';
+    var UVAR_NAME  = 'ngTheme_settings'; // legacy user-variable name
+    var UVAR_TYPE  = 2;                  // Domoticz "string" type
 
     // Base path for API calls
     var BASE = (function () {
@@ -3034,10 +3038,12 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     var _settings      = null;
-    var _uvarIdx       = null; // Domoticz idx of the ngTheme_settings variable
+    var _uvarIdx       = null;  // Domoticz idx of the ngTheme_settings variable
     var _panelInjected = false;
-    var _apiAvailable  = true; // false if Domoticz API is unreachable
-    var _saveTimer     = null; // debounce handle for API writes
+    var _apiAvailable  = true;  // false if Domoticz API is unreachable
+    var _useNewApi     = false; // true when build ≥ 17806 (ThemeSettings in getsettings)
+    var _saveTimer     = null;  // debounce handle for API writes
+    var _dirty         = false; // true when in-memory changes not yet saved to DB
     var LS_KEY         = 'ngThemeSettings';
 
     /* ── Domoticz API helper ──────────────────────────────────────── */
@@ -3052,7 +3058,99 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(function (r) { return r.json(); });
     }
 
-    /* ── Single-variable JSON storage ────────────────────────────── */
+    /* ── New API: ThemeSettings in Domoticz preferences DB (build ≥ 17806) ── */
+
+    // Resolves with the Domoticz build number, or 0 on failure.
+    function getBuildNumber() {
+        return apiCall({ type: 'command', param: 'getversion' }).then(function (data) {
+            return (data && (data.Revision || data.build_number)) || 0;
+        }).catch(function () { return 0; });
+    }
+
+    // Reads ThemeSettings from getsettings.  Always resolves — returns the
+    // stored object if present, or null when no settings have been saved yet
+    // (first use with the new API).  Rejects only on a network/parse error.
+    function loadFromGetsettings() {
+        return apiCall({ type: 'command', param: 'getsettings' }).then(function (data) {
+            if (!data || data.status !== 'OK') return Promise.reject('getsettings failed');
+            var stored = data.ThemeSettings && data.ThemeSettings[THEME_NAME];
+            return stored || null;
+        });
+    }
+
+    var _unsavedToastEl = null;
+
+    // Shows or dismisses the persistent "unsaved changes" toast notification.
+    function _showUnsavedToast(show) {
+        if (!_useNewApi) return;
+        if (show) {
+            if (_unsavedToastEl && _unsavedToastEl.parentNode) return; // already visible
+            if (typeof window.ngShowToast !== 'function') return;
+            _unsavedToastEl = window.ngShowToast({
+                icon:     'fa-floppy-disk',
+                color:    'var(--dz-warning, #f0a832)',
+                title:    'Unsaved theme changes',
+                body:     'Click <strong>Save to Domoticz</strong> to persist across all browsers.',
+                duration: 0,
+                type:     'system'
+            });
+        } else {
+            if (_unsavedToastEl && typeof window.ngRemoveToast === 'function') {
+                window.ngRemoveToast(_unsavedToastEl);
+            }
+            _unsavedToastEl = null;
+        }
+    }
+
+    // Updates Angular scope's ThemeSettings in-memory so the value is
+    // included when scope.StoreSettings() is called later from the Save button.
+    // No direct storesettings API call — avoids any risk of clobbering other
+    // Domoticz settings with a partial POST.
+    function _updateAngularScope() {
+        try {
+            var el = document.getElementById('maindiv') || document.body;
+            var scope = window.angular && angular.element(el).scope();
+            if (!scope) return;
+            scope.$apply(function () {
+                scope.ThemeSettings = scope.ThemeSettings || {};
+                scope.ThemeSettings[THEME_NAME] = _settings;
+            });
+        } catch (e) {}
+        _dirty = true;
+        _showUnsavedToast(true);
+    }
+
+    // Persists settings to the Domoticz database by calling Angular's
+    // StoreSettings() — the same full-form save the settings page uses, so
+    // all other Domoticz settings are preserved.  Only callable from the
+    // Settings page (which is where the Nightglass panel lives).
+    function _saveToDomoticz(btn) {
+        try {
+            var el = document.getElementById('maindiv') || document.body;
+            var scope = window.angular && angular.element(el).scope();
+            if (!scope || !scope.StoreSettings) {
+                console.warn('Nightglass: StoreSettings not available on this page');
+                return;
+            }
+            scope.$apply(function () {
+                scope.ThemeSettings = scope.ThemeSettings || {};
+                scope.ThemeSettings[THEME_NAME] = _settings;
+            });
+            scope.StoreSettings();
+            _dirty = false;
+            _showUnsavedToast(false);
+            if (btn) {
+                var orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
+                btn.disabled = true;
+                setTimeout(function () { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+            }
+        } catch (e) {
+            console.warn('Nightglass: _saveToDomoticz failed', e);
+        }
+    }
+
+    /* ── Legacy: single-variable JSON storage (user variables) ───────── */
     // Loads all user variables, finds ngTheme_settings and parses its JSON.
     // If that variable doesn't exist but old per-key ngTheme_* variables do,
     // migrates them transparently (no data loss on first upgrade).
@@ -3086,12 +3184,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Serialises _settings to JSON and writes/creates the single user variable.
-    // Debounced at 400 ms so rapid consecutive saveSetting() calls (e.g. applying
-    // a preset) collapse into one API request.
+    // Keeps Angular scope in sync on every setting change (debounced 400 ms).
+    // On build ≥ 17806 only updates the Angular scope in-memory — the actual
+    // database write happens when the user clicks "Save to Domoticz" in the
+    // panel footer, which calls scope.StoreSettings() so ALL Domoticz settings
+    // are written together (no partial-POST risk).
+    // On older builds falls back to the safe user-variable API.
     function saveJsonUvar() {
         clearTimeout(_saveTimer);
         _saveTimer = setTimeout(function () {
+            if (_useNewApi) {
+                _updateAngularScope();
+                return;
+            }
+            // Legacy path: store as a JSON user variable
             var json = JSON.stringify(_settings);
             if (_uvarIdx) {
                 apiCall({
@@ -3130,18 +3236,56 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadSettings() {
-        return loadJsonUvar().then(function (stored) {
-            // JSON.parse preserves native types (boolean true, not string "true"),
-            // so no per-key type coercion is needed here.
-            _settings = Object.assign({}, DEFAULTS, stored || {});
-            _apiAvailable = true;
-            saveToLocalStorage();
-            return _settings;
-        }).catch(function () {
-            _apiAvailable = false;
-            var stored = loadFromLocalStorage();
-            _settings = Object.assign({}, DEFAULTS, stored || {});
-            return _settings;
+        // Check build number first so we know which storage backend to use.
+        return getBuildNumber().then(function (build) {
+            if (build >= 17806) {
+                // New API: read from getsettings, fall back to user vars for migration.
+                _useNewApi    = true;
+                _apiAvailable = true;
+                return loadFromGetsettings().then(function (stored) {
+                    if (stored) {
+                        // Settings already persisted via new API — use them.
+                        _settings = Object.assign({}, DEFAULTS, stored);
+                    } else {
+                        // Nothing in ThemeSettings yet; pull from user variables
+                        // as a one-time migration source (read-only — saves will
+                        // now go through the new API).
+                        return loadJsonUvar().then(function (migrated) {
+                            _settings = Object.assign({}, DEFAULTS, migrated || {});
+                            return _settings;
+                        }).catch(function () {
+                            _settings = Object.assign({}, DEFAULTS);
+                            return _settings;
+                        });
+                    }
+                    return _settings;
+                }).catch(function () {
+                    // getsettings failed — degrade to user variables.
+                    return loadJsonUvar().then(function (stored) {
+                        _settings = Object.assign({}, DEFAULTS, stored || {});
+                        return _settings;
+                    }).catch(function () {
+                        _settings = Object.assign({}, DEFAULTS, loadFromLocalStorage() || {});
+                        return _settings;
+                    });
+                }).then(function (s) {
+                    saveToLocalStorage();
+                    return s;
+                });
+            }
+
+            // Older build — use user variables.
+            _useNewApi    = false;
+            return loadJsonUvar().then(function (stored) {
+                _apiAvailable = true;
+                _settings = Object.assign({}, DEFAULTS, stored || {});
+                saveToLocalStorage();
+                return _settings;
+            }).catch(function () {
+                _apiAvailable = false;
+                _settings = Object.assign({}, DEFAULTS, loadFromLocalStorage() || {});
+                return _settings;
+            });
         });
     }
 
@@ -3824,11 +3968,17 @@ document.addEventListener('DOMContentLoaded', function () {
             '<button class="ng-import-btn" id="ngImportBtn" title="Import settings from JSON file">' +
             '<i class="fa-solid fa-file-import"></i> Import</button>' +
             '<input type="file" id="ngImportFile" accept=".json" style="display:none">' +
+            (_useNewApi
+                ? '<button class="ng-save-btn" id="ngSaveBtn" title="Save settings to the Domoticz database">' +
+                  '<i class="fa-solid fa-floppy-disk"></i> Save to Domoticz</button>'
+                : '') +
             '</div>' +
             '<span class="ng-footer-note"><i class="fa-solid fa-cloud-arrow-up"></i> ' +
-            (_apiAvailable
-                ? 'Settings are stored as Domoticz user variables and sync across all your browsers.'
-                : 'API unavailable — settings are stored in this browser\'s local storage.') +
+            (!_apiAvailable
+                ? 'API unavailable — settings are stored in this browser\'s local storage.'
+                : _useNewApi
+                    ? 'Changes apply instantly. Click <strong>Save to Domoticz</strong> to persist across all browsers.'
+                    : 'Settings are stored as Domoticz user variables and sync across all your browsers.') +
             '</span></div>' +
 
             '</div>';
@@ -4041,7 +4191,6 @@ document.addEventListener('DOMContentLoaded', function () {
             style.id = 'dz-ng-settings-hide';
             style.textContent =
                 '#settingscontent.ng-showing #my-tab-content { display: none !important; }' +
-                '#settingscontent.ng-showing .sub-tabs-apply { display: none !important; }' +
                 '#settingscontent.ng-showing #ng-theme-settings-wrap { display: block !important; }';
             document.head.appendChild(style);
         }
@@ -4354,6 +4503,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 };
                 reader.readAsText(file);
                 this.value = ''; // allow re-importing the same file
+            });
+        }
+
+        // Save to Domoticz button (new API only)
+        var saveBtn = container.querySelector('#ngSaveBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function () {
+                _saveToDomoticz(this);
             });
         }
 
@@ -5769,20 +5926,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         el.addEventListener('mouseenter', function () {
+            if (!duration) return;
             clearTimeout(timerId);
             remaining = Math.max(0, remaining - (Date.now() - startedAt));
             progress.style.transition = 'none';
             progress.style.width = ((remaining / duration) * 100).toFixed(1) + '%';
         });
         el.addEventListener('mouseleave', function () {
+            if (!duration) return;
             startedAt = Date.now();
             startDrain(remaining);
         });
 
-        startDrain(duration);
+        if (duration > 0) startDrain(duration);
+        // duration === 0 → persistent: no progress bar, no auto-dismiss
         return el;
     }
     window.ngShowToast = ngShowToast;
+    window.ngRemoveToast = removeToast;
 
     /* ── Only notify for devices currently visible on screen ────── */
 
