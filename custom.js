@@ -3075,29 +3075,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Writes _settings back via Angular's ThemeSettings scope field.
-    // This only works from the Settings page where the Angular scope exposes
-    // ThemeSettings and StoreSettings().  Silent no-op on all other pages
-    // (localStorage already holds the value; it will be persisted next time
-    // the user opens the Settings page).
+    // Persists _settings via a direct storesettings POST with only the
+    // ThemeSettings field.  Domoticz (build ≥ 17806) treats it as a partial
+    // update — it stores only what is provided and leaves all other settings
+    // untouched.  This works from any page and causes no page reload.
     function _saveViaThemeSettings() {
-        if (window.location.hash.indexOf('Setup') === -1) return;
-        var el = document.getElementById('maindiv') || document.body;
-        var scope = window.angular && window.angular.element(el).scope();
-        if (!scope) return;
-        try {
-            scope.$apply(function () {
-                scope.ThemeSettings = scope.ThemeSettings || {};
-                scope.ThemeSettings[THEME_NAME] = _settings;
-            });
-        } catch (e) {
-            // $apply already in progress — use $applyAsync as a safe fallback
-            scope.$applyAsync(function () {
-                scope.ThemeSettings = scope.ThemeSettings || {};
-                scope.ThemeSettings[THEME_NAME] = _settings;
-            });
-        }
-        if (scope.StoreSettings) scope.StoreSettings();
+        var body = new FormData();
+        var payload = {};
+        payload[THEME_NAME] = _settings;
+        body.append('ThemeSettings', JSON.stringify(payload));
+        fetch(BASE + 'json.htm?type=command&param=storesettings', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: body
+        });
     }
 
     /* ── Legacy: single-variable JSON storage (user variables) ───────── */
