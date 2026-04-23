@@ -5629,6 +5629,75 @@ table.mobileitem,
     font-weight: 600;
 }
 
+/* ── Floorplan hover popup theming ──────────────────────────────────
+   The popup is rendered as a pure SVG <g class="DeviceDetails"> group.
+   Presentation attributes have lower specificity than CSS, so we can
+   override fill/stroke here without !important for most elements.      */
+
+/* Popup card background (overrides PopupGradient — the gradient is also
+   updated dynamically in JS via applyPopupGradient())                  */
+.DeviceDetails rect.popup {
+    fill: var(--dz-card-bg);
+    stroke: var(--dz-border-color);
+    stroke-width: 0.5;
+}
+
+/* Drop-shadow rect: keep subtle, just slightly darker than background */
+.DeviceDetails rect#shadow {
+    fill: rgba(0, 0, 0, 0.35);
+}
+
+/* All text inside the popup → themed text color
+   (SVG default is black; overridden here for dark theme)               */
+.DeviceDetails text,
+.DeviceDetails tspan {
+    fill: var(--dz-text);
+}
+
+/* Button label texts have fill="white" as presentation attribute which
+   would be overridden above.  Re-pin them to white so they stay readable
+   on the accent-colored button rects.  Attribute selectors override the
+   general 'text' rule since they have higher specificity.              */
+.DeviceDetails text[fill="white"],
+.DeviceDetails tspan[fill="white"] {
+    fill: #ffffff;
+}
+
+/* Action button rects: replace the photo-texture pattern with a flat
+   accent-colored pill matching the rest of the Nightglass UI.          */
+.DeviceDetails rect[id="Log"],
+.DeviceDetails rect[id="Edit"],
+.DeviceDetails rect[id="Timers"],
+.DeviceDetails rect[id="Notifications"],
+.DeviceDetails rect[id="Forecast"] {
+    fill: var(--dz-accent-color);
+}
+
+/* Notifications active state: use a slightly brighter/distinct shade */
+.DeviceDetails rect[id="Notifications"][fill="url(#ButtonImage2)"] {
+    fill: var(--dz-accent-hover, #6aaef7);
+}
+
+/* foreignObject status divs (HTML text sensors) → inherit theme text */
+.DeviceDetails foreignObject div {
+    color: var(--dz-text) !important;
+}
+
+/* Font Awesome icon wrappers injected by Nightglass inside the popup */
+.DeviceDetails .dz-fp-icon-wrap {
+    overflow: visible;
+}
+
+/* Light mode: popup background should be near-white card bg, not pure white */
+body.dz-light .DeviceDetails rect.popup {
+    fill: var(--dz-card-bg);
+    stroke: var(--dz-border-color);
+}
+body.dz-light .DeviceDetails text,
+body.dz-light .DeviceDetails tspan {
+    fill: var(--dz-text);
+}
+
 
 /* ══════════════════════════════════════════════════════════════════
    21. FANCY CHECKBOXES  (dark-friendly toggle switch)

@@ -1489,6 +1489,81 @@ if (document.readyState === 'loading') {
     /* Expose scheduleBurst so code outside this IIFE (e.g. tab-switch
        observers in the processCards block) can trigger a replacement pass. */
     window._dzScheduleBurst = scheduleBurst;
+
+    /* ── Floorplan popup: immediate icon replacement + theme patch ───
+       Device.popupRedraw recreates the popup SVG content each time it
+       is shown, including new <image> elements for the device icon.
+       The MutationObserver won't see these (they're re-drawn inside an
+       already-tracked subtree), so we get a 600–2000 ms delay before
+       the FA icon appears.  We patch popupRedraw to call replaceSVGIcons
+       synchronously immediately after Domoticz finishes drawing.
+
+       We also patch Device.checkDefs to overwrite the PopupGradient stop
+       colors with themed values right after Domoticz creates them.         */
+    function patchFloorplanPopup() {
+        if (typeof Device === 'undefined' || !Device.popupRedraw || !Device.checkDefs) {
+            setTimeout(patchFloorplanPopup, 400);
+            return;
+        }
+
+        /* ── Theme the SVG gradient defs ──────────────────────────── */
+        var _origCheckDefs = Device.checkDefs;
+        Device.checkDefs = function () {
+            _origCheckDefs.apply(this, arguments);
+            applyPopupGradient();
+        };
+
+        /* ── Immediate icon replacement on popup open ─────────────── */
+        var _origRedraw = Device.popupRedraw;
+        Device.popupRedraw = function (target) {
+            _origRedraw.apply(this, arguments);
+            var el = document.getElementById(target + '_Detail');
+            if (el) {
+                /* Remove stale data-dz-replaced marks so processSVGImageEl
+                   re-processes icons that Domoticz just redrew.             */
+                var old = el.querySelectorAll('image[data-dz-replaced]');
+                for (var i = 0; i < old.length; i++) {
+                    old[i].removeAttribute('data-dz-replaced');
+                    old[i].removeAttribute('data-dz-skipped');
+                    old[i].style.opacity = '';
+                    /* Remove associated <foreignObject> so we don't duplicate */
+                    var fo = iconMap.get(old[i]);
+                    if (fo && fo.parentNode) fo.parentNode.removeChild(fo);
+                    iconMap.delete(old[i]);
+                }
+                replaceSVGIcons(el);
+            }
+        };
+    }
+
+    function applyPopupGradient() {
+        var defsEl = document.getElementById('DeviceDefs');
+        if (!defsEl) return;
+        var grad = document.getElementById('PopupGradient');
+        if (!grad) return;
+        var isDark = !document.body.classList.contains('dz-light');
+        var stop1 = isDark ? '#252836' : '#f8f9fc';
+        var stop2 = isDark ? '#1b1d2a' : '#edf0f5';
+        var stops = grad.querySelectorAll('stop');
+        if (stops[0]) stops[0].style.cssText = 'stop-color:' + stop1 + ';stop-opacity:1';
+        if (stops[1]) stops[1].style.cssText = 'stop-color:' + stop2 + ';stop-opacity:1';
+    }
+
+    /* Re-apply gradient when dark/light mode is toggled.
+       applyHighchartsTheme is the shared hook called by the dark/light toggle. */
+    (function () {
+        var _origHC = window.applyHighchartsTheme;
+        window.applyHighchartsTheme = function (isDark) {
+            if (_origHC) _origHC.apply(this, arguments);
+            applyPopupGradient();
+        };
+    }());
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(patchFloorplanPopup, 300); });
+    } else {
+        setTimeout(patchFloorplanPopup, 300);
+    }
 })();
 
 
@@ -2484,17 +2559,29 @@ document.addEventListener('DOMContentLoaded', function () {
         cache[idx].push(val);
         if (cache[idx].length > MAX_POINTS) cache[idx].splice(0, cache[idx].length - MAX_POINTS);
 
-        // Re-render the sparkline directly — no HTTP round-trip needed
-        var card = findCardByIdx(idx);
-        if (!card) return;
-        var wrap = card.querySelector('.dz-sparkline-wrap');
-        if (!wrap) return;
-        wrap.innerHTML = svgSparkline(cache[idx], idx);
-        wrap.style.display = '';
-
-        // Update lastRefresh so the MutationObserver path won't also fire an
-        // HTTP refresh for 30 s after this real-time update.
+        // Update lastRefresh immediately so the periodic-refresh path won't
+        // fire an HTTP fetch for 30 s after this real-time update.
         lastRefresh[idx] = Date.now();
+
+        // Defer DOM update to AFTER Angular's digest cycle.  The $on handler
+        // fires while Angular is still digesting; updating innerHTML now can
+        // be overwritten when Angular finishes re-rendering the card bindings.
+        // setTimeout(fn, 0) lets Angular finish first.
+        var snapCache = cache[idx].slice(); // snapshot so late mutations don't affect this paint
+        setTimeout(function () {
+            var card = findCardByIdx(idx);
+            if (!card) return;
+            var wrap = card.querySelector('.dz-sparkline-wrap');
+            if (!wrap) {
+                // Angular re-rendered the card and removed our wrap — re-insert it
+                card.style.position = 'relative';
+                wrap = document.createElement('div');
+                wrap.className = 'dz-sparkline-wrap';
+                card.insertBefore(wrap, card.firstChild);
+            }
+            wrap.innerHTML = svgSparkline(snapCache, idx);
+            wrap.style.display = '';
+        }, 0);
     }
 
     function attachSparklineWsHook() {
