@@ -2962,18 +2962,20 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ==================================================================
  *  Nightglass Theme Settings Panel
  *  Injects a themed config panel into the Domoticz Settings page.
- *  Persists settings as Domoticz user variables so they sync across
- *  all browsers / devices.
+ *  On Domoticz build ≥ 17806 settings are persisted via the ThemeSettings
+ *  API (preferences DB).  On older builds the legacy ngTheme_settings user
+ *  variable is used as a fallback.  localStorage is always kept in sync as
+ *  a local cache so settings apply instantly on every page load.
  * ================================================================== */
 
 (function () {
     'use strict';
 
-    // All settings are stored as a single JSON string in one user variable,
-    // rather than one user variable per key.  This cuts API traffic from
-    // ~30 calls per load/save down to 1.
-    var UVAR_NAME = 'ngTheme_settings'; // the single JSON user variable
-    var UVAR_TYPE = 2;                  // Domoticz "string" type
+    // Domoticz build ≥ 17806 supports ThemeSettings in the preferences DB.
+    // Older builds use a user variable (ngTheme_settings) as fallback.
+    var THEME_NAME = 'Nightglass';
+    var UVAR_NAME  = 'ngTheme_settings'; // legacy user-variable name
+    var UVAR_TYPE  = 2;                  // Domoticz "string" type
 
     // Base path for API calls
     var BASE = (function () {
@@ -3034,10 +3036,11 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     var _settings      = null;
-    var _uvarIdx       = null; // Domoticz idx of the ngTheme_settings variable
+    var _uvarIdx       = null;  // Domoticz idx of the ngTheme_settings variable
     var _panelInjected = false;
-    var _apiAvailable  = true; // false if Domoticz API is unreachable
-    var _saveTimer     = null; // debounce handle for API writes
+    var _apiAvailable  = true;  // false if Domoticz API is unreachable
+    var _useNewApi     = false; // true when build ≥ 17806 (ThemeSettings in getsettings)
+    var _saveTimer     = null;  // debounce handle for API writes
     var LS_KEY         = 'ngThemeSettings';
 
     /* ── Domoticz API helper ──────────────────────────────────────── */
@@ -3052,7 +3055,47 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(function (r) { return r.json(); });
     }
 
-    /* ── Single-variable JSON storage ────────────────────────────── */
+    /* ── New API: ThemeSettings in Domoticz preferences DB (build ≥ 17806) ── */
+
+    // Reads settings from getsettings.  Returns a Promise that resolves with
+    // the stored object (or null if no settings saved yet) and rejects if the
+    // new API is not available (older build or network error).
+    function loadFromGetsettings() {
+        return apiCall({ type: 'command', param: 'getsettings' }).then(function (data) {
+            if (!data || !Object.prototype.hasOwnProperty.call(data, 'ThemeSettings')) {
+                return Promise.reject('ThemeSettings not in getsettings response (old build)');
+            }
+            var stored = data.ThemeSettings && data.ThemeSettings[THEME_NAME];
+            return stored || null;
+        });
+    }
+
+    // Writes _settings back via Angular's ThemeSettings scope field.
+    // This only works from the Settings page where the Angular scope exposes
+    // ThemeSettings and StoreSettings().  Silent no-op on all other pages
+    // (localStorage already holds the value; it will be persisted next time
+    // the user opens the Settings page).
+    function _saveViaThemeSettings() {
+        if (window.location.hash.indexOf('Setup') === -1) return;
+        var el = document.getElementById('maindiv') || document.body;
+        var scope = window.angular && window.angular.element(el).scope();
+        if (!scope) return;
+        try {
+            scope.$apply(function () {
+                scope.ThemeSettings = scope.ThemeSettings || {};
+                scope.ThemeSettings[THEME_NAME] = _settings;
+            });
+        } catch (e) {
+            // $apply already in progress — use $applyAsync as a safe fallback
+            scope.$applyAsync(function () {
+                scope.ThemeSettings = scope.ThemeSettings || {};
+                scope.ThemeSettings[THEME_NAME] = _settings;
+            });
+        }
+        if (scope.StoreSettings) scope.StoreSettings();
+    }
+
+    /* ── Legacy: single-variable JSON storage (user variables) ───────── */
     // Loads all user variables, finds ngTheme_settings and parses its JSON.
     // If that variable doesn't exist but old per-key ngTheme_* variables do,
     // migrates them transparently (no data loss on first upgrade).
@@ -3086,12 +3129,18 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Serialises _settings to JSON and writes/creates the single user variable.
-    // Debounced at 400 ms so rapid consecutive saveSetting() calls (e.g. applying
-    // a preset) collapse into one API request.
+    // Persists _settings to the server.  Debounced at 400 ms so rapid
+    // consecutive saveSetting() calls (e.g. applying a preset) collapse into
+    // one request.  Routes to the new ThemeSettings API on build ≥ 17806,
+    // and falls back to the legacy user-variable approach on older builds.
     function saveJsonUvar() {
         clearTimeout(_saveTimer);
         _saveTimer = setTimeout(function () {
+            if (_useNewApi) {
+                _saveViaThemeSettings();
+                return;
+            }
+            // Legacy path: store as a JSON user variable
             var json = JSON.stringify(_settings);
             if (_uvarIdx) {
                 apiCall({
@@ -3130,18 +3179,29 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function loadSettings() {
-        return loadJsonUvar().then(function (stored) {
-            // JSON.parse preserves native types (boolean true, not string "true"),
-            // so no per-key type coercion is needed here.
-            _settings = Object.assign({}, DEFAULTS, stored || {});
+        // 1. Try new ThemeSettings API (Domoticz build ≥ 17806)
+        return loadFromGetsettings().then(function (stored) {
+            _useNewApi    = true;
             _apiAvailable = true;
+            _settings = Object.assign({}, DEFAULTS, stored || {});
             saveToLocalStorage();
             return _settings;
         }).catch(function () {
-            _apiAvailable = false;
-            var stored = loadFromLocalStorage();
-            _settings = Object.assign({}, DEFAULTS, stored || {});
-            return _settings;
+            // 2. Fall back to legacy user-variable storage (older builds)
+            return loadJsonUvar().then(function (stored) {
+                _useNewApi    = false;
+                _apiAvailable = true;
+                _settings = Object.assign({}, DEFAULTS, stored || {});
+                saveToLocalStorage();
+                return _settings;
+            }).catch(function () {
+                // 3. Both APIs unavailable — use localStorage cache
+                _useNewApi    = false;
+                _apiAvailable = false;
+                var stored = loadFromLocalStorage();
+                _settings = Object.assign({}, DEFAULTS, stored || {});
+                return _settings;
+            });
         });
     }
 
@@ -3826,9 +3886,11 @@ document.addEventListener('DOMContentLoaded', function () {
             '<input type="file" id="ngImportFile" accept=".json" style="display:none">' +
             '</div>' +
             '<span class="ng-footer-note"><i class="fa-solid fa-cloud-arrow-up"></i> ' +
-            (_apiAvailable
-                ? 'Settings are stored as Domoticz user variables and sync across all your browsers.'
-                : 'API unavailable — settings are stored in this browser\'s local storage.') +
+            (!_apiAvailable
+                ? 'API unavailable — settings are stored in this browser\'s local storage.'
+                : _useNewApi
+                    ? 'Settings are stored in the Domoticz preferences database and sync across all your browsers.'
+                    : 'Settings are stored as Domoticz user variables and sync across all your browsers.') +
             '</span></div>' +
 
             '</div>';
