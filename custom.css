@@ -1,6 +1,6 @@
 @import url("../../css/legacy.css");
 /* Don't remove this line! */
-@import url("../default/common.css");
+@import url("common.css");
 @import url("../../font-awesome/css/regular.min.css");
 /* Load FA7 regular (outline) style; Domoticz only loads solid by default */
 
@@ -51,8 +51,10 @@
     --dz-widget-name-font-size: 130%;
     --dz-widget-status-text: #b0b3c6;
     --dz-widget-value-font-size: 140%;
+    --dz-widget-hover-bg: #2e3040;
     --dz-widget-hover-name-bg: #33354a;
     --dz-widget-hover-name-border: #4e9af1;
+    --dz-widget-hover-name-text: #e2e4ed;
     /* Status colours */
     --dz-status-normal: #2a2b35;
     --dz-status-protected: #2a3050;
@@ -193,8 +195,10 @@ body.dz-light {
     --dz-widget-name-border: #d0d3dc;
     --dz-widget-name-text: #1a1c24;
     --dz-widget-status-text: #4a4d5e;
+    --dz-widget-hover-bg: #f0f2f5;
     --dz-widget-hover-name-bg: #e8eaed;
     --dz-widget-hover-name-border: #2a7de1;
+    --dz-widget-hover-name-text: #1a1c24;
     --dz-status-normal: #f5f6fa;
     --dz-status-protected: #e8eef8;
     --dz-status-disabled: #d0d3dc;
@@ -2078,7 +2082,7 @@ body table[id^="itemtable"] tr td.options {
     display: flex !important;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     padding: 8px 0 2px !important;
     margin-top: auto !important;
     border-top: 0px solid rgba(var(--dz-overlay-rgb), 0.05) !important;
@@ -2117,8 +2121,8 @@ body table[id^="itemtable"] tr td.options {
     body table[id^="itemtable"] tr td.options .btnsmall,
     body table[id^="itemtable"] tr td.options .btnsmall-sel,
     body table[id^="itemtable"] tr td.options .btnsmall-dis {
-        font-size: 0.7rem !important;
-        padding: 3px 10px !important;
+        font-size: 0.68rem !important;
+        padding: 2px 8px !important;
         border-radius: 20px !important;
         border: 1px solid var(--dz-border-b) !important;
         background: var(--dz-surface) !important;
