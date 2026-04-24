@@ -6993,3 +6993,80 @@ document.addEventListener('DOMContentLoaded', function () {
         init();
     }
 })();
+
+/* ── Feature 12b: Events Editor — Bootstrap glyphicon → FA swap ─── */
+// Bootstrap 2 renders icon-* classes via sprite sheet.
+// This replaces them with proper FA classes so FA's own CSS handles rendering.
+(function () {
+    'use strict';
+
+    // Bootstrap 2 icon-* class → FA 6 solid icon name
+    var ICON_CLASS_MAP = {
+        'icon-folder-open':   'fa-folder-open',
+        'icon-folder-close':  'fa-folder',
+        'icon-plus-sign':     'fa-circle-plus',
+        'icon-minus-sign':    'fa-circle-minus',
+        'icon-chevron-left':  'fa-chevron-left',
+        'icon-chevron-right': 'fa-chevron-right',
+        'icon-tasks':         'fa-list-check',
+        'icon-info-sign':     'fa-circle-info',
+        'icon-plus':          'fa-plus',
+        'icon-pencil':        'fa-pencil',
+        'icon-trash':         'fa-trash',
+        'icon-align-justify': 'fa-align-justify',
+        'icon-question-sign': 'fa-circle-question',
+    };
+
+    var iconClasses = Object.keys(ICON_CLASS_MAP);
+
+    function swapIcons() {
+        var container = document.querySelector('.events-editor');
+        if (!container) return;
+        var selector = iconClasses.map(function (c) { return '.' + c; }).join(',');
+        var els = container.querySelectorAll(selector);
+        els.forEach(function (el) {
+            iconClasses.forEach(function (src) {
+                if (!el.classList.contains(src)) return;
+                var fa = ICON_CLASS_MAP[src];
+                if (el.classList.contains(fa)) { el.classList.remove(src); return; }
+                el.classList.remove(src);
+                el.classList.add('fa-solid', fa);
+            });
+        });
+    }
+
+    function init() {
+        [300, 800, 1600].forEach(function (d) { setTimeout(swapIcons, d); });
+
+        try {
+            var $rootScope = angular.element(document.body).injector().get('$rootScope');
+            $rootScope.$on('$routeChangeSuccess', function () {
+                setTimeout(swapIcons, 400);
+                setTimeout(swapIcons, 1200);
+            });
+        } catch (e) {}
+
+        // Watch for Angular re-renders (folder expand, filter changes)
+        var mo = new MutationObserver(function (mutations) {
+            if (mutations.some(function (m) { return m.addedNodes.length > 0; })) {
+                setTimeout(swapIcons, 80);
+            }
+        });
+
+        function hookEditor() {
+            var ed = document.querySelector('.events-editor');
+            if (ed) {
+                mo.observe(ed, { childList: true, subtree: true });
+            } else {
+                setTimeout(hookEditor, 1000);
+            }
+        }
+        hookEditor();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
