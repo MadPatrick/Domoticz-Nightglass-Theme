@@ -360,6 +360,17 @@ i.dz-wind {
     transition: opacity 0.15s, color 0.2s, transform 0.4s ease;
 }
 
+/* Toggle-switch icons are ~2:1 wide; shrink so they match other icons */
+i.dz-fa-device.fa-toggle-on,
+i.dz-fa-device.fa-toggle-off {
+    font-size: calc(1.0rem * var(--ng-icon-scale, 1));
+}
+
+/* Lightbulb is visually very full/round; scale down slightly to match */
+i.dz-fa-device.fa-lightbulb {
+    font-size: calc(1.2rem * var(--ng-icon-scale, 1));
+}
+
 /* Blinds stop button */
 i.dz-fa-device.fa-stop {
     color: var(--dz-text-muted);

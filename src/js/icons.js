@@ -112,7 +112,7 @@
         'rgb':             { icon: 'fa-solid fa-palette',             on: '#c8a0ff', off: '#555770' },
 
         /* Switches & push buttons */
-        'generic':         { icon: 'fa-solid fa-power-off',           on: '#4caf7d', off: '#555770' },
+        'generic':         { icon: 'fa-solid fa-toggle-on',           on: '#4caf7d', off: '#555770' },
         'push':            { icon: 'fa-solid fa-circle-dot',          on: '#4e9af1', off: '#555770' },
         'onoff':           { icon: 'fa-solid fa-power-off',           on: null,      off: null },
         'pushon':          { icon: 'fa-solid fa-circle-dot',          on: '#4e9af1', off: null },
