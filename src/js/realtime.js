@@ -1,22 +1,13 @@
 (function () {
     'use strict';
 
-    var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
-                        'Jul','Aug','Sep','Oct','Nov','Dec'];
-
+    /* Reuse the locale-aware timestamp formatter exposed by card-features.js */
     function fmtLastUpdate(raw) {
+        if (window._dzFmtLastUpdate) return window._dzFmtLastUpdate(raw) || String(raw || '');
+        /* Fallback (card-features not loaded yet): plain 24h format */
         var m = String(raw || '').match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
-        var d = m ? new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]) : new Date();
-        var now  = new Date();
-        var h    = d.getHours(), min = ('0' + d.getMinutes()).slice(-2);
-        var ampm = h >= 12 ? 'pm' : 'am';
-        var h12  = (h % 12) || 12;
-        var time = h12 + ':' + min + '\u202f' + ampm;
-        var sameDay = d.getFullYear() === now.getFullYear() &&
-                      d.getMonth()    === now.getMonth()    &&
-                      d.getDate()     === now.getDate();
-        if (sameDay) return 'today\u202f' + time;
-        return MONTHS_SHORT[d.getMonth()] + '\u202f' + d.getDate() + ',\u202f' + time;
+        if (!m) return String(raw || '');
+        return ('0' + m[4]).slice(-2) + ':' + ('0' + m[5]).slice(-2);
     }
 
     function findCard(idx) {
@@ -45,6 +36,8 @@
         if (luSpan) {
             var formatted = fmtLastUpdate(device.LastUpdate);
             if (luSpan.textContent !== formatted) luSpan.textContent = formatted;
+            var tsMatch = String(device.LastUpdate || '').match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})/);
+            if (tsMatch) luSpan.setAttribute('data-ts', tsMatch[1]);
         }
 
         // Schedule an icon-replacement burst so on/off state changes rendered
