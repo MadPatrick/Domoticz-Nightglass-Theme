@@ -599,7 +599,13 @@
                 return { type: 'icon', cls: ICON_MAP[ICON_KEYS[m]], color: null };
             }
         }
-        /* Device icons (48px cards + non-48 table type indicators) */
+        /* Device icons — all DEVICE_MAP matches always get device size and
+           correct on/off colour regardless of whether '48' appears in the
+           filename.  Some Domoticz views use non-48 filenames (e.g.
+           Light_Off.png, Light.png) for the device state column; without
+           this the off-state icons render at icon-size (1 rem) while
+           on-state icons with '48' render at device-size (1.5 rem),
+           causing the visible size mismatch reported by users. */
         var dev = parseDeviceSrc(src);
         if (dev && DEVICE_MAP[dev.base]) {
             var spec = DEVICE_MAP[dev.base];
@@ -608,13 +614,8 @@
                 ? dev.state === 'on'
                 : dev.state !== 'off';
             var color = isOn ? (spec.on || '#b0b3c6') : (spec.off || '#555770');
-            if (src.indexOf('48') !== -1) {
-                return { type: 'device', cls: spec.icon + ' dz-fa-device', color: color,
-                         colorOn: spec.on || '#b0b3c6', colorOff: spec.off || '#555770' };
-            } else {
-                /* Non-48 table icons: use on-colour for type indicator, icon-size */
-                return { type: 'icon', cls: spec.icon, color: spec.on || '#b0b3c6' };
-            }
+            return { type: 'device', cls: spec.icon + ' dz-fa-device', color: color,
+                     colorOn: spec.on || '#b0b3c6', colorOff: spec.off || '#555770' };
         }
         /* Alert level icons */
         var alertMatch = ALERT_RE.exec(src);
