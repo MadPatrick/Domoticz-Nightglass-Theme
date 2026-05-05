@@ -834,6 +834,13 @@
             }
         } else {
             var sizeClass = getSizeClass(img, src);
+            /* Device card icon cells (td#img / td#img1 / td#img2 / td#img3) —
+               always use device size so all state icons in a row are the same
+               height, regardless of whether the src filename contains '48'. */
+            if (sizeClass === 'dz-fa-icon' && img.parentElement &&
+                    /^img\d*$/.test(img.parentElement.getAttribute('id') || '')) {
+                sizeClass = 'dz-fa-device';
+            }
             icon.className = resolved.cls + ' ' + sizeClass;
             if (resolved.color) icon.style.color = resolved.color;
         }
