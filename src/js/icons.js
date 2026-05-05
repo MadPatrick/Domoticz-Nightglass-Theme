@@ -837,9 +837,12 @@
             var sizeClass = getSizeClass(img, src);
             /* Device card icon cells (td#img / td#img1 / td#img2 / td#img3) —
                always use device size so all state icons in a row are the same
-               height, regardless of whether the src filename contains '48'. */
-            if (sizeClass === 'dz-fa-icon' && img.parentElement &&
-                    /^img\d*$/.test(img.parentElement.getAttribute('id') || '')) {
+               height, regardless of filename.
+               Uses closest() rather than parentElement so that <a class="lcursor">
+               wrappers that Domoticz inserts around clickable switch icons don't
+               break the ancestor check. */
+            if (sizeClass === 'dz-fa-icon' && img.closest &&
+                    img.closest('td[id^="img"]')) {
                 sizeClass = 'dz-fa-device';
             }
             icon.className = resolved.cls + ' ' + sizeClass;
@@ -931,7 +934,12 @@
             if (resolved.colorOff) icon.setAttribute('data-dz-color-off', resolved.colorOff);
             icon.setAttribute('data-dz-state', resolved.color === resolved.colorOn ? 'on' : 'off');
         } else {
-            icon.className = resolved.cls + ' ' + getSizeClass(img, curSrc);
+            var newSizeClass = getSizeClass(img, curSrc);
+            if (newSizeClass === 'dz-fa-icon' && img.closest &&
+                    img.closest('td[id^="img"]')) {
+                newSizeClass = 'dz-fa-device';
+            }
+            icon.className = resolved.cls + ' ' + newSizeClass;
             icon.style.color = resolved.color || '';
         }
 
